@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dad's Winter Sports Competition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('https://images.unsplash.com/photo-1507521621176-8b13f3a90f0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-color: #1a4731; /* Darker green fallback for sporty vibe */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Arial Black', sans-serif;
+        }
+        .tent {
+            perspective: 1000px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .tent:hover {
+            transform: translateY(-12px) scale(1.05);
+            box-shadow: 0 8px 16px rgba(0, 255, 0, 0.5);
+        }
+        .tent-sign {
+            transform: rotateY(-15deg);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(135deg, #1e40af, #3b82f6); /* Sporty blue gradient */
+            border: 2px solid #ffd700; /* Gold border for dazzle */
+        }
+        .tent-sign.trophy-room {
+            background: linear-gradient(135deg, #dc2626, #b91c1c); /* Red gradient for Trophy Room */
+            border: 2px solid #ffd700;
+        }
+        .tent-sign.running {
+            background: linear-gradient(135deg, #15803d, #22c55e); /* Green for Running */
+        }
+        .tent-sign.shot-put {
+            background: linear-gradient(135deg, #4b5563, #9ca3af); /* Gray for Shot Put */
+        }
+        .tent-sign.javelin {
+            background: linear-gradient(135deg, #ea580c, #f97316); /* Orange for Javelin */
+        }
+        .tent-sign.boxing {
+            background: linear-gradient(135deg, #6b21a8, #a855f7); /* Purple for Boxing */
+        }
+        .tent-sign.hurdles {
+            background: linear-gradient(135deg, #0d9488, #14b8a6); /* Teal for Hurdles */
+        }
+        .title {
+            text-shadow: 0 0 10px #ffd700, 0 0 20px #ff0000, 0 0 30px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px #ffd700, 0 0 20px #ff0000, 0 0 30px #00ff00;
+            }
+            to {
+                text-shadow: 0 0 20px #ffd700, 0 0 30px #ff0000, 0 0 40px #00ff00;
+            }
+        }
+        .sport-icon {
+            filter: drop-shadow(0 0 5px #ffffff);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto text-center py-12">
+        <h1 class="text-6xl font-extrabold mb-16 title">Dad's Winter Sports Competition</h1>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-10">
+            <a href="./pong.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign">
+                    <div class="bg-red-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Super Pong</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="20" fill="#ffffff"/>
+                        <rect x="40" y="10" width="20" height="80" fill="#ff0000"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./swimming.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign">
+                    <div class="bg-blue-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Swimming</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <path d="M20,70 Q50,50 80,70" stroke="#ffffff" stroke-width="5" fill="none"/>
+                        <circle cx="50" cy="40" r="10" fill="#ffffff"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./running.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign running">
+                    <div class="bg-green-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Running</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <path d="M30,70 Q50,50 70,70" stroke="#ffffff" stroke-width="5" fill="none"/>
+                        <circle cx="70" cy="30" r="10" fill="#ffffff"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./shot-put.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign shot-put">
+                    <div class="bg-gray-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Shot Put</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="15" fill="#ffffff"/>
+                        <path d="M50,50 L70,30" stroke="#ffffff" stroke-width="5"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./javelin.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign javelin">
+                    <div class="bg-orange-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Javelin</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <path d="M20,80 L80,20" stroke="#ffffff" stroke-width="5"/>
+                        <triangle points="75,25 80,20 85,25" fill="#ffffff"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./boxing.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign boxing">
+                    <div class="bg-purple-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Boxing</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <rect x="35" y="30" width="30" height="20" fill="#ffffff"/>
+                        <rect x="45" y="50" width="10" height="20" fill="#ffffff"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./hurdles.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign hurdles">
+                    <div class="bg-teal-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Hurdles</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <rect x="40" y="30" width="20" height="40" fill="#ffffff"/>
+                        <path d="M20,70 Q50,50 80,70" stroke="#ffffff" stroke-width="5" fill="none"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./trophy-room.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-6 tent-sign trophy-room">
+                    <div class="bg-red-600 text-white font-bold py-3 px-5 rounded mb-3 text-lg">Trophy Room</div>
+                    <svg class="w-28 h-28 mx-auto sport-icon" viewBox="0 0 100 100">
+                        <rect x="30" y="20" width="40" height="60" fill="#dc2626" stroke="#ffd700" stroke-width="2"/>
+                        <path d="M40,60 H60 V50 H50 V40 H40 Z M45,40 V35 A5,5 0 0 1 55,35 V40" fill="#ffd700"/>
+                    </svg>
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
