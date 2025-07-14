@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swimming Race Game</title>
+    <!-- Tailwind CSS for basic layout and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Align items to start, allowing scroll */
+            align-items: center;
+            height: auto; /* Let content define height */
+            margin: 0;
+            padding: 8px; /* Slightly reduced overall padding */
+            overflow-y: auto; /* Allow vertical scrolling */
+            gap: 8px; /* Reduced gap between main elements */
+        }
+
+        canvas {
+            background-color: #0077be; /* Pool Blue - this will be overwritten by drawPool() */
+            border: 8px solid #4a5568; /* Darker border */
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 119, 190, 0.7); /* Blue glow effect */
+            display: block;
+            width: 95%; /* Increased responsive width */
+            max-width: 600px; /* Further reduced max-width for smaller overall game */
+            height: auto; /* Maintain aspect ratio */
+            aspect-ratio: 16 / 9; /* Standard widescreen aspect ratio */
+            margin-bottom: 4px; /* Reduced margin */
+            position: relative; /* For water animation overlay */
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* Match canvas max-width */
+            padding: 6px; /* Reduced padding for better fit */
+            background-color: #2d3748; /* Darker background for controls */
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            color: #e2e8f0; /* Light text */
+        }
+
+        .game-title {
+            font-size: 1.6rem; /* Reduced font size for title */
+            font-weight: bold;
+            color: #f6e05e; /* Yellow color for emphasis */
+            margin-bottom: 5px; /* Reduced margin */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around; /* Space out scores */
+            align-items: center;
+            width: 100%;
+            max-width: 600px; /* Constrain scoreboard width */
+            margin-bottom: 6px; /* Reduced margin */
+            font-size: 1.1rem; /* Reduced font size */
+            font-weight: bold;
+            color: #a0aec0;
+            background-color: #3a475a;
+            padding: 4px 6px; /* Reduced padding */
+            border-radius: 8px;
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+            gap: 4px; /* Reduced space between score items */
+        }
+
+        .score-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1px 4px; /* Adjusted padding */
+            border-radius: 6px;
+            background-color: #4a5568;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            border: 2px solid transparent; /* Default border */
+            min-width: 60px; /* Ensure consistent width */
+        }
+
+        /* New CSS for flashing scoreboard border */
+        @keyframes flashBorder {
+            0% { border-color: #4a5568; box-shadow: 0 0 6px rgba(0, 0, 0, 0.3); }
+            50% { border-color: #f6e05e; box-shadow: 0 0 15px #f6e05e; } /* Yellow glow */
+            100% { border-color: #4a5568; box-shadow: 0 0 6px rgba(0, 0, 0, 0.3); }
+        }
+
+        .score-item.flash-border {
+            animation: flashBorder 0.8s infinite alternate; /* Flash continuously */
+        }
+
+        .score-name {
+            font-size: 0.7rem; /* Slightly smaller */
+            color: #cbd5e0;
+            margin-bottom: 0px; /* Removed margin */
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .score-time {
+            font-size: 1rem; /* Slightly smaller */
+            color: #66ff66; /* Green for time */
+        }
+
+        .score-laps {
+            font-size: 0.6rem; /* Slightly smaller */
+            color: #cbd5e0;
+            opacity: 0.8;
+        }
+
+        .controls {
+            display: grid; /* Use grid for better layout */
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* Adjusted minmax for more compact columns */
+            gap: 0.4rem; /* Reduced gap */
+            padding: 0.4rem; /* Reduced padding */
+            background-color: #2d3748; /* Darker background for controls */
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 600px; /* Match canvas max-width */
+        }
+
+        /* Explicitly define 3 columns for larger screens */
+        @media (min-width: 1024px) {
+            .controls {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .player-controls, .game-settings {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.15rem; /* Reduced gap within groups */
+            padding: 0.3rem; /* Reduced padding */
+            background-color: #3a475a; /* Slightly lighter dark background for groups */
+            border-radius: 6px;
+            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-controls h3 {
+            font-size: 0.8rem; /* Slightly smaller */
+            font-weight: bold;
+            color: #e2e8f0;
+            margin-bottom: 0.15rem; /* Reduced margin */
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.05rem; /* Reduced gap */
+            width: 100%;
+        }
+
+        input[type="text"], select {
+            background-color: #4a5568;
+            border: 1px solid #6a7382;
+            border-radius: 4px;
+            padding: 1px 4px; /* Reduced padding */
+            color: #e2e8f0;
+            outline: none;
+            width: calc(100% - 8px); /* Adjust width to account for padding */
+            max-width: 100px; /* Max width for inputs */
+            font-size: 0.65rem; /* Slightly smaller */
+        }
+        label {
+            font-size: 0.65rem; /* Ensure labels are readable */
+            color: #cbd5e0;
+        }
+
+        .mode-buttons button {
+            background-color: #5a67d8; /* Indigo for buttons */
+            padding: 1px 4px; /* Reduced padding */
+            border-radius: 4px;
+            font-size: 0.65rem; /* Slightly smaller */
+            margin: 0 1px; /* Reduced space between buttons */
+        }
+        .mode-buttons button:hover {
+            background-color: #4c51bf;
+        }
+        .mode-buttons button.active {
+            background-color: #667eea; /* Lighter indigo for active */
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-buttons {
+            display: flex;
+            gap: 4px; /* Reduced gap */
+            margin-top: 0.4rem; /* Reduced margin */
+        }
+
+        button {
+            background-color: #4299e1; /* Blue button */
+            color: white;
+            padding: 4px 8px; /* Reduced padding */
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem; /* Slightly smaller */
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            background-color: #6b7280; /* Gray out disabled buttons */
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #messageBox {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 25px; /* Reduced padding */
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            font-size: 1.5rem; /* Reduced font size */
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .game-title {
+                font-size: 1.3rem;
+            }
+            .scoreboard {
+                font-size: 1rem;
+                max-width: 500px;
+                padding: 5px 8px;
+            }
+            .score-time {
+                font-size: 1rem;
+            }
+            .score-name {
+                font-size: 0.65rem;
+            }
+            .score-laps {
+                font-size: 0.55rem;
+            }
+            .controls {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 0.5rem;
+                padding: 0.5rem;
+            }
+            .player-controls h3 {
+                font-size: 0.8rem;
+            }
+            input[type="text"], select {
+                padding: 2px 5px;
+                font-size: 0.65rem;
+            }
+            .mode-buttons button {
+                padding: 2px 5px;
+                font-size: 0.65rem;
+            }
+            button {
+                padding: 4px 8px;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 1.1rem;
+            }
+            .scoreboard {
+                font-size: 0.8rem;
+                max-width: 400px;
+                padding: 3px 5px;
+            }
+            .score-time {
+                font-size: 0.8rem;
+            }
+            .score-name {
+                font-size: 0.55rem;
+            }
+            .score-laps {
+                font-size: 0.5rem;
+            }
+            .controls {
+                grid-template-columns: 1fr; /* Single column on smaller screens */
+                padding: 0.3rem;
+                gap: 0.3rem;
+            }
+            .player-controls, .game-settings {
+                padding: 0.25rem;
+            }
+            .player-controls h3 {
+                font-size: 0.75rem;
+            }
+            input[type="text"], select {
+                font-size: 0.6rem;
+                max-width: none; /* Allow full width on small screens */
+            }
+            .mode-buttons button {
+                font-size: 0.6rem;
+            }
+            button {
+                padding: 3px 6px;
+                font-size: 0.65rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-title {
+                font-size: 0.9rem;
+            }
+            .scoreboard {
+                flex-direction: column; /* Stack scores vertically */
+                font-size: 0.6rem;
+                padding: 2px;
+                gap: 2px;
+            }
+            .score-item {
+                width: 98%; /* Make score items take more width */
+            }
+            .score-time {
+                font-size: 0.7rem;
+            }
+            .score-name {
+                font-size: 0.5rem;
+            }
+            .score-laps {
+                font-size: 0.45rem;
+            }
+            .game-buttons {
+                flex-direction: column; /* Stack buttons vertically */
+                gap: 4px;
+            }
+            button {
+                width: 98%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h2 class="game-title">Lane Master Swimmers</h2>
+        <div class="scoreboard">
+            <div id="player1ScoreItem" class="score-item">
+                <span id="player1NameDisplay" class="score-name">Player 1</span>
+                <span id="player1Time" class="score-time">00:00.000</span>
+                <span id="player1Laps" class="score-laps">Laps: 0 / 0</span>
+            </div>
+            <div id="player2ScoreItem" class="score-item">
+                <span id="player2NameDisplay" class="score-name">Player 2</span>
+                <span id="player2Time" class="score-time">00:00.000</span>
+                <span id="player2Laps" class="score-laps">Laps: 0 / 0</span>
+            </div>
+        </div>
+
+        <canvas id="swimmingPoolCanvas"></canvas>
+
+        <div class="controls">
+            <div class="player-controls">
+                <h3 class="text-lg font-semibold text-white">Player 1</h3>
+                <div class="control-group">
+                    <label for="player1Input">Name</label>
+                    <input type="text" id="player1Input" value="You" maxlength="15">
+                </div>
+                <div class="control-group">
+                    <label for="player1SwimsuitColor">Swimsuit Color</label>
+                    <select id="player1SwimsuitColor">
+                        <option value="#FF0000">Red</option>
+                        <option value="#0000FF">Blue</option>
+                        <option value="#008000">Green</option>
+                        <option value="#FFFF00">Yellow</option>
+                        <option value="#800080">Purple</option>
+                        <option value="#FFA500">Orange</option>
+                        <option value="#FFC0CB">Pink</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="player1StrokeButton">Stroke Button (Arms)</label>
+                    <input type="text" id="player1StrokeButton" value="A" maxlength="1" disabled>
+                </div>
+                <div class="control-group">
+                    <label for="player1KickButton">Kick Button (Legs)</label>
+                    <input type="text" id="player1KickButton" value="S" maxlength="1" disabled>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <h3 class="text-lg font-semibold text-white">Player 2</h3>
+                <div class="control-group">
+                    <label for="player2Input">Name</label>
+                    <input type="text" id="player2Input" value="Player 2" maxlength="15">
+                </div>
+                <div class="control-group">
+                    <label for="player2SwimsuitColor">Swimsuit Color</label>
+                    <select id="player2SwimsuitColor">
+                        <option value="#0000FF">Blue</option>
+                        <option value="#FF0000">Red</option>
+                        <option value="#008000">Green</option>
+                        <option value="#FFFF00">Yellow</option>
+                        <option value="#800080">Purple</option>
+                        <option value="#FFA500">Orange</option>
+                        <option value="#FFC0CB">Pink</option>
+                    </select>
+                </div>
+                 <div class="control-group">
+                    <label for="player2StrokeButton">Stroke Button (Arms)</label>
+                    <input type="text" id="player2StrokeButton" value="K" maxlength="1" disabled>
+                </div>
+                <div class="control-group">
+                    <label for="player2KickButton">Kick Button (Legs)</label>
+                    <input type="text" id="player2KickButton" value="L" maxlength="1" disabled>
+                </div>
+            </div>
+
+            <div class="game-settings">
+                <h3 class="text-lg font-semibold text-white">Race Settings</h3>
+                <div class="control-group">
+                    <label for="numLaps">Number of Laps</label>
+                    <select id="numLaps">
+                        <option value="1">1 Lap (25m)</option>
+                        <option value="2">2 Laps (50m)</option>
+                        <option value="4" selected>4 Laps (100m)</option>
+                        <option value="8">8 Laps (200m)</option>
+                    </select>
+                </div>
+                <div class="control-group mode-buttons">
+                    <label>Opponent Mode</label>
+                    <div class="flex gap-2">
+                        <button id="modeHumanHuman" class="active">2 Players</button>
+                        <button id="modeHumanAIDad">Race Dad</button>
+                        <button id="modeHumanAIMum">Race Mum</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="aiDifficulty">AI Difficulty</label>
+                    <select id="aiDifficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div class="game-buttons">
+                    <button id="startButton">Start Race</button>
+                    <button id="resetButton">Reset Race</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageBox"></div>
+    <!-- Visual indicator for script execution -->
+    <div id="scriptIndicator" style="width: 20px; height: 20px; background-color: gray; margin-top: 10px; border-radius: 50%;"></div>
+
+    <script>
+        console.log("Script file started parsing."); // New top-level log
+
+        // Console log to check if script starts running
+        console.log("Swimming Race Script loaded and running!");
+
+        const canvas = document.getElementById('swimmingPoolCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game constants
+        const NUM_LANES = 8;
+        const TILE_AREA_WIDTH_RATIO = 0.15; // Increased to make pool smaller horizontally
+        const TILE_AREA_HEIGHT_RATIO = 0.15; // New: for top/bottom tiles, increased to make pool smaller vertically
+
+        // Calculate dynamic lane height ratio based on the available pool height
+        const LANE_HEIGHT_RATIO = (1 - (2 * TILE_AREA_HEIGHT_RATIO)) / NUM_LANES;
+
+        const SWIMMER_WIDTH_RATIO = 0.015; // Swimmer body width relative to canvas width
+        const SWIMMER_HEIGHT_RATIO = 0.04; // Slightly reduced swimmer height to fit narrower lanes
+        
+        const MIN_STROKE_SPEED = 0.0005; // Minimum movement per stroke/kick ratio per frame
+        const MAX_STROKE_SPEED_MULTIPLIER = 2.0; // How much faster clicking makes you
+        const AI_BASE_SPEED_MULTIPLIER = {
+            'easy': 0.7,
+            'medium': 1.0,
+            'hard': 1.3
+        };
+        const AI_MUM_VARIANCE = 0.1; // Mum is more consistent
+        const AI_DAD_VARIANCE = 0.3; // Dad has more variance
+        const COUNTDOWN_TIME = 3; // 3 seconds countdown
+        const LANE_MARKER_WIDTH_RATIO = 0.002; // Width of lane lines
+        const START_FINISH_LINE_WIDTH_RATIO = 0.005; // Width of start/finish lines
+        const WATER_SPLASH_RADIUS_FACTOR = 0.1; // Factor for splash radius relative to swimmer width
+        const WATER_SPLASH_DURATION = 200; // Milliseconds for splash animation
+
+        // Game state variables
+        let player1Progress = 0; // Normalized progress (0 to 1)
+        let player2Progress = 0; // Normalized progress (0 to 1)
+        let player1Time = 0;
+        let player2Time = 0;
+        let player1LapsCompleted = 0;
+        let player2LapsCompleted = 0;
+        let targetLaps = 4; // Default to 4 laps (100m)
+        let gameStartTime = null;
+        let animationFrameId;
+        let countdownIntervalId = null;
+        let gameMode = 'human-human';
+        let aiDifficulty = 'medium';
+        let isGamePlaying = false;
+        let isAnimationRunning = true;
+        let raceFinished = false;
+        const keysPressed = {}; // For player input
+        const playerStrokeTimers = { 'player1': { 'arm': 0, 'leg': 0 }, 'player2': { 'arm': 0, 'leg': 0 } }; // Tracks time since last button press
+        const playerStrokeCounts = { 'player1': { 'arm': 0, 'leg': 0 }, 'player2': { 'arm': 0, 'leg': 0 } }; // Tracks rapid presses for speed
+        const playerLastStrokeTime = { 'player1': { 'arm': 0, 'leg': 0 }, 'player2': { 'arm': 0, 'leg': 0 } };
+        const WATER_SPLASHES = []; // { x, y, radius, alpha, swimmerColor }
+        const SWIMMERS = []; // Array to hold all swimmers (P1, P2, AI)
+        let crowdAnimationOffset = 0; // For crowd excitement animation
+
+        // Player customization variables (declared globally, assigned in DOMContentLoaded)
+        let player1Input, player2Input, player1SwimsuitColor, player2SwimsuitColor;
+
+        // Audio context for sounds
+        let audioContext = null; // Initialize as null
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log("AudioContext initialized.");
+            }
+        }
+
+        // Replaced Tone.js with native Web Audio API for sounds
+        function playRaceStartSound() {
+            initAudioContext();
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 880; // A5
+            
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.5, now + 0.05); // Fade in
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3); // Quick fade out
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start(now);
+            oscillator.stop(now + 0.3);
+            console.log("Race start sound played.");
+        }
+
+        function playFinishLineSound() {
+            initAudioContext();
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'triangle';
+            oscillator.frequency.value = 440; // A4
+            
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.7, now + 0.1); // Fade in
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8); // Fade out
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start(now);
+            oscillator.stop(now + 0.8);
+            console.log("Finish line sound played.");
+        }
+
+        function playSplashSound() {
+            initAudioContext();
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'triangle'; // Use a simple tone for splash
+            oscillator.frequency.value = 200 + Math.random() * 100; // Vary frequency slightly
+            
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0.05, now); // Low volume
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05); // Very quick decay
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start(now);
+            oscillator.stop(now + 0.05); // Very short duration
+        }
+
+
+        // Swimmer class for easier management
+        class Swimmer {
+            constructor(id, name, color, lane, isPlayer = true, strokeKey = null, kickKey = null) {
+                this.id = id;
+                this.name = name;
+                this.color = color;
+                this.lane = lane;
+                this.isPlayer = isPlayer;
+                this.strokeKey = strokeKey;
+                this.kickKey = kickKey;
+                this.progress = 0; // 0 to 1 across the pool width
+                this.currentLap = 0;
+                this.swimmingDirection = 1; // 1 for right, -1 for left
+                this.armAngle = 0; // For arm animation
+                this.legAngle = 0; // For leg animation
+                this.armDirection = 1;
+                this.legDirection = 1;
+                this.lastArmClickTime = 0;
+                this.lastLegClickTime = 0;
+                this.armStrokeCount = 0;
+                this.legStrokeCount = 0;
+                this.actualSpeed = 0; // Current effective speed based on clicks/AI
+                this.splashTimers = []; // For individual splash effects
+                this.swimmerBodyWidth = 0; // Calculated on resize
+                this.swimmerBodyHeight = 0; // Calculated on resize
+                this.animationCounter = 0; // For general animation rhythm
+            }
+
+            updateSpeedFromClicks() {
+                const now = performance.now();
+                const armClickRate = (now - this.lastArmClickTime) < 100 ? 1 : 0; // Recent click for arms
+                const legClickRate = (now - this.lastLegClickTime) < 100 ? 1 : 0; // Recent click for legs
+
+                // Calculate a combined speed based on how rapidly both buttons are clicked
+                const clickBonus = (this.armStrokeCount + this.legStrokeCount) / 2; // Average clicks
+                this.actualSpeed = MIN_STROKE_SPEED * (1 + Math.min(clickBonus, MAX_STROKE_SPEED_MULTIPLIER - 1));
+
+                // Decay stroke counts
+                if (now - this.lastArmClickTime > 150) this.armStrokeCount = 0;
+                if (now - this.lastLegClickTime > 150) this.legStrokeCount = 0;
+
+                // Limit speed if it exceeds the max multiplier
+                this.actualSpeed = Math.min(this.actualSpeed, MIN_STROKE_SPEED * MAX_STROKE_SPEED_MULTIPLIER);
+            }
+
+            updateAiSpeed(aiDifficulty, gameMode) {
+                let baseSpeed = MIN_STROKE_SPEED * (gameMode === 'human-ai-dad' ? 1.0 : 0.95); // Dad slightly faster base
+                let variance = gameMode === 'human-ai-dad' ? AI_DAD_VARIANCE : AI_MUM_VARIANCE;
+
+                let difficultyMultiplier = AI_BASE_SPEED_MULTIPLIER[aiDifficulty];
+                
+                // Add some random fluctuation to AI speed
+                let fluctuation = (Math.random() - 0.5) * variance * 2; // -variance to +variance
+                
+                this.actualSpeed = baseSpeed * difficultyMultiplier * (1 + fluctuation);
+            }
+
+            update(deltaTime) {
+                if (!isGamePlaying || raceFinished) return;
+
+                if (this.isPlayer) {
+                    this.updateSpeedFromClicks();
+                } else {
+                    this.updateAiSpeed(aiDifficulty, gameMode);
+                }
+
+                // Update progress
+                const poolWidth = canvas.width * (1 - 2 * TILE_AREA_WIDTH_RATIO);
+                this.progress += this.actualSpeed * this.swimmingDirection * (deltaTime / 1000); // Scale by deltaTime for frame rate independence
+
+                // Swimmer animation updates
+                this.animationCounter += this.actualSpeed * 50; // Controls animation speed
+
+                this.armAngle = Math.sin(this.animationCounter) * (Math.PI / 6); // Arms swing more with speed
+                this.legAngle = Math.sin(this.animationCounter + Math.PI / 2) * (Math.PI / 8); // Legs slightly out of sync
+
+                // Add splashes
+                if (this.actualSpeed > 0.0005 && Math.random() < (this.actualSpeed * 10)) { // More splashes at higher speed
+                    this.addSplash();
+                }
+
+                // Check for lap completion
+                if (this.swimmingDirection === 1 && this.progress >= 1) { // Reached end of pool
+                    this.progress = 1;
+                    this.currentLap++;
+                    this.swimmingDirection = -1; // Turn around
+                    playSplashSound(); // Sound for turning
+                } else if (this.swimmingDirection === -1 && this.progress <= 0) { // Reached start of pool
+                    this.progress = 0;
+                    this.currentLap++;
+                    this.swimmingDirection = 1; // Turn around
+                    playSplashSound(); // Sound for turning
+                }
+            }
+
+            draw(ctx) {
+                const poolTop = canvas.height * TILE_AREA_HEIGHT_RATIO;
+                const poolBottom = canvas.height * (1 - TILE_AREA_HEIGHT_RATIO);
+                const poolHeight = poolBottom - poolTop;
+
+                const poolLeft = canvas.width * TILE_AREA_WIDTH_RATIO;
+                const poolRight = canvas.width * (1 - TILE_AREA_WIDTH_RATIO);
+                const poolWidth = poolRight - poolLeft;
+
+
+                const laneY = poolTop + (poolHeight / NUM_LANES) * (this.lane + 0.5); // Center of the lane within the new pool vertical bounds
+                const swimmerX = poolLeft + (this.progress * poolWidth); // Swimmer X position within the pool
+                const swimmerY = laneY;
+
+                this.swimmerBodyWidth = canvas.width * SWIMMER_WIDTH_RATIO;
+                this.swimmerBodyHeight = canvas.height * SWIMMER_HEIGHT_RATIO;
+
+                // Draw body (rectangular for swimmer)
+                ctx.fillStyle = this.color;
+                ctx.fillRect(swimmerX - this.swimmerBodyWidth / 2, swimmerY - this.swimmerBodyHeight / 2, this.swimmerBodyWidth, this.swimmerBodyHeight);
+
+                // Draw head
+                const headRadius = this.swimmerBodyWidth / 2;
+                ctx.beginPath();
+                ctx.arc(swimmerX, swimmerY - this.swimmerBodyHeight / 2 - headRadius / 2, headRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#FFDAB9'; // Peach color for skin
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Draw arms (animated)
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                // Right arm
+                ctx.beginPath();
+                ctx.moveTo(swimmerX, swimmerY);
+                ctx.lineTo(swimmerX + Math.cos(this.armAngle) * (this.swimmerBodyWidth * 0.8), swimmerY - Math.sin(this.armAngle) * (this.swimmerBodyWidth * 0.8));
+                ctx.stroke();
+                // Left arm
+                ctx.beginPath();
+                ctx.moveTo(swimmerX, swimmerY);
+                ctx.lineTo(swimmerX - Math.cos(this.armAngle) * (this.swimmerBodyWidth * 0.8), swimmerY + Math.sin(this.armAngle) * (this.swimmerBodyWidth * 0.8));
+                ctx.stroke();
+
+                // Draw legs (animated)
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                // Right leg
+                ctx.beginPath();
+                ctx.moveTo(swimmerX, swimmerY + this.swimmerBodyHeight / 2);
+                ctx.lineTo(swimmerX + Math.cos(this.legAngle) * (this.swimmerBodyWidth * 0.6), swimmerY + this.swimmerBodyHeight / 2 + Math.sin(this.legAngle) * (this.swimmerBodyWidth * 0.6));
+                ctx.stroke();
+                // Left leg
+                ctx.beginPath();
+                ctx.moveTo(swimmerX, swimmerY + this.swimmerBodyHeight / 2);
+                ctx.lineTo(swimmerX - Math.cos(this.legAngle) * (this.swimmerBodyWidth * 0.6), swimmerY + this.swimmerBodyHeight / 2 - Math.sin(this.legAngle) * (this.swimmerBodyWidth * 0.6));
+                ctx.stroke();
+            }
+
+            addSplash() {
+                const poolTop = canvas.height * TILE_AREA_HEIGHT_RATIO;
+                const poolBottom = canvas.height * (1 - TILE_AREA_HEIGHT_RATIO);
+                const poolHeight = poolBottom - poolTop;
+
+                const poolLeft = canvas.width * TILE_AREA_WIDTH_RATIO;
+                const poolRight = canvas.width * (1 - TILE_AREA_WIDTH_RATIO);
+                const poolWidth = poolRight - poolLeft;
+
+                const swimmerX = poolLeft + (this.progress * poolWidth);
+                const laneY = poolTop + (poolHeight / NUM_LANES) * (this.lane + 0.5);
+                WATER_SPLASHES.push({
+                    x: swimmerX + (Math.random() - 0.5) * this.swimmerBodyWidth,
+                    y: laneY + (Math.random() - 0.5) * this.swimmerBodyHeight,
+                    radius: this.swimmerBodyWidth * WATER_SPLASH_RADIUS_FACTOR * (0.5 + Math.random() * 0.5), // Vary radius
+                    alpha: 1,
+                    swimmerColor: this.color
+                });
+            }
+        }
+
+        // Initialize swimmers
+        function initializeSwimmers() {
+            // Ensure player names and colors are updated from input fields
+            player1Name = player1Input.value;
+            player2Name = player2Input.value;
+            player1SwimsuitColor = player1SwimsuitColor.value;
+            player2SwimsuitColor = player2SwimsuitColor.value;
+
+            SWIMMERS.length = 0; // Clear existing swimmers
+            // Player 1 in lane 3 (0-indexed)
+            SWIMMERS.push(new Swimmer('player1', player1Name, player1SwimsuitColor, 3, true, 'a', 's')); 
+            // Player 2 in lane 4
+            SWIMMERS.push(new Swimmer('player2', player2Name, player2SwimsuitColor, 4, true, 'k', 'l')); 
+
+            if (gameMode === 'human-ai-dad') {
+                SWIMMERS[1].isPlayer = false; // Player 2 becomes AI Dad
+                SWIMMERS[1].name = "Dad";
+                SWIMMERS[1].color = "#4CAF50"; // Green for Dad
+            } else if (gameMode === 'human-ai-mum') {
+                SWIMMERS[1].isPlayer = false; // Player 2 becomes AI Mum
+                SWIMMERS[1].name = "Mum";
+                SWIMMERS[1].color = "#FF69B4"; // Hot Pink for Mum
+            }
+
+            // Add other AI swimmers to fill lanes
+            const aiNames = ["Coach", "Rival", "Champ", "Shark", "Wave", "Sprint", "Hydro", "Aqua"];
+            const aiColors = ["#808080", "#FFD700", "#00FFFF", "#FF4500", "#9370DB", "#ADFF2F", "#8B0000", "#00BFFF"]; // Various AI colors
+            let aiLaneIndex = 0;
+            for (let i = 0; i < NUM_LANES; i++) {
+                // Ensure AI swimmers don't overwrite player lanes 3 and 4
+                if (i !== 3 && i !== 4) { 
+                    let aiName = aiNames[aiLaneIndex % aiNames.length];
+                    let aiColor = aiColors[aiLaneIndex % aiColors.length];
+                    SWIMMERS.push(new Swimmer(`ai${i}`, aiName, aiColor, i, false));
+                    aiLaneIndex++;
+                }
+            }
+            // Sort swimmers by lane for consistent drawing
+            SWIMMERS.sort((a, b) => a.lane - b.lane);
+            console.log("Swimmers initialized:", SWIMMERS);
+        }
+
+
+        // Game drawing functions
+        function drawPool() {
+            const poolLeft = canvas.width * TILE_AREA_WIDTH_RATIO;
+            const poolRight = canvas.width * (1 - TILE_AREA_WIDTH_RATIO);
+            const poolTop = canvas.height * TILE_AREA_HEIGHT_RATIO; 
+            const poolBottom = canvas.height * (1 - TILE_AREA_HEIGHT_RATIO);
+
+            const tileSize = 20; // Size of individual tiles
+            const tileColorLight = '#A9A9A9'; // DarkGray
+            const tileColorDark = '#808080'; // Gray
+
+            // Draw top tiled area
+            for (let y = 0; y < poolTop; y += tileSize) {
+                for (let x = 0; x < canvas.width; x += tileSize) {
+                    ctx.fillStyle = ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) ? tileColorLight : tileColorDark;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            // Draw bottom tiled area
+            for (let y = poolBottom; y < canvas.height; y += tileSize) {
+                for (let x = 0; x < canvas.width; x += tileSize) {
+                    ctx.fillStyle = ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) ? tileColorLight : tileColorDark;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            // Draw left tiled area (adjust Y range to exclude top/bottom tiles)
+            for (let x = 0; x < poolLeft; x += tileSize) {
+                for (let y = poolTop; y < poolBottom; y += tileSize) {
+                    ctx.fillStyle = ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) ? tileColorLight : tileColorDark;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+            // Draw right tiled area (adjust Y range to exclude top/bottom tiles)
+            for (let x = poolRight; x < canvas.width; x += tileSize) {
+                for (let y = poolTop; y < poolBottom; y += tileSize) {
+                    ctx.fillStyle = ((Math.floor(x / tileSize) + Math.floor(y / tileSize)) % 2 === 0) ? tileColorLight : tileColorDark;
+                    ctx.fillRect(x, y, tileSize, tileSize);
+                }
+            }
+
+            // Now, draw the pool background color within the defined pool area
+            ctx.fillStyle = '#0077be'; // Pool Blue
+            ctx.fillRect(poolLeft, poolTop, poolRight - poolLeft, poolBottom - poolTop);
+
+            // Draw lane lines
+            ctx.strokeStyle = '#FFFFFF'; // White lines
+            ctx.lineWidth = canvas.width * LANE_MARKER_WIDTH_RATIO;
+            for (let i = 1; i < NUM_LANES; i++) {
+                // Lane lines should be drawn within the pool's vertical bounds
+                const laneY = poolTop + (poolBottom - poolTop) / NUM_LANES * i;
+                ctx.beginPath();
+                ctx.moveTo(poolLeft, laneY);
+                ctx.lineTo(poolRight, laneY);
+                ctx.stroke();
+            }
+
+            // Draw start and finish lines
+            ctx.strokeStyle = '#FFD700'; // Gold color
+            ctx.lineWidth = canvas.width * START_FINISH_LINE_WIDTH_RATIO;
+            // Start Line (left side of pool)
+            ctx.beginPath();
+            ctx.moveTo(poolLeft, poolTop);
+            ctx.lineTo(poolLeft, poolBottom);
+            ctx.stroke();
+            // Finish Line (right side of pool)
+            ctx.beginPath();
+            ctx.moveTo(poolRight, poolTop);
+            ctx.lineTo(poolRight, poolBottom);
+            ctx.stroke();
+
+            // Draw lane numbers on the left tiled area
+            ctx.fillStyle = '#FFFFFF'; // White color for numbers
+            ctx.font = `${canvas.height * 0.03}px 'Inter', sans-serif`; // Responsive font size
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i < NUM_LANES; i++) {
+                const laneCenterY = poolTop + (poolBottom - poolTop) / NUM_LANES * (i + 0.5);
+                const textX = poolLeft / 2; // Center in the left tiled area
+                ctx.fillText(String(i + 1), textX, laneCenterY);
+            }
+        }
+
+        function drawCrowdMember(x, y, color) {
+            const headRadius = 8; // Smaller crowd members
+            const bodyHeight = 20;
+            const bodyWidth = 15;
+
+            let animatedY = y;
+            if (isGamePlaying) {
+                // Small vertical bounce for excitement
+                animatedY += Math.sin(crowdAnimationOffset + (x / 50)) * 2; 
+            }
+
+            // Body
+            ctx.fillStyle = color;
+            ctx.fillRect(x - bodyWidth / 2, animatedY + headRadius, bodyWidth, bodyHeight);
+
+            // Head
+            ctx.beginPath();
+            ctx.arc(x, animatedY + headRadius, headRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFDAB9'; // Skin tone
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Simple eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(x - headRadius / 2, animatedY + headRadius - 2, 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + headRadius / 2, animatedY + headRadius - 2, 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawCrowd() {
+            const poolTop = canvas.height * TILE_AREA_HEIGHT_RATIO;
+            const poolBottom = canvas.height * (1 - TILE_AREA_HEIGHT_RATIO);
+
+            const crowdSpacing = 25; // Space between crowd members
+            const crowdMemberTotalHeight = 35; // Approximate total height of a crowd member (headRadius*2 + bodyHeight)
+            const startX = 20; // Start drawing from a bit in
+            const endX = canvas.width - 20;
+
+            // Top row crowd - place them centered vertically in the top tile area
+            const topRowY = (poolTop / 2) - (crowdMemberTotalHeight / 2); 
+            // Bottom row crowd - place them centered vertically in the bottom tile area
+            const bottomRowY = poolBottom + ((canvas.height - poolBottom) / 2) - (crowdMemberTotalHeight / 2);
+
+            // Top row crowd
+            let currentX = startX;
+            let crowdIndex = 0;
+            while (currentX < endX) {
+                const color = `hsl(${crowdIndex * 30 % 360}, 70%, 60%)`; // Varying colors
+                drawCrowdMember(currentX, topRowY, color);
+                currentX += crowdSpacing;
+                crowdIndex++;
+            }
+
+            // Bottom row crowd
+            currentX = startX;
+            crowdIndex = 0;
+            while (currentX < endX) {
+                const color = `hsl(${crowdIndex * 45 % 360}, 60%, 50%)`;
+                drawCrowdMember(currentX, bottomRowY, color);
+                currentX += crowdSpacing;
+                crowdIndex++;
+            }
+        }
+
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            drawPool();
+            SWIMMERS.forEach(swimmer => swimmer.draw(ctx));
+            drawCrowd(); // Draw crowd members
+
+            if (isGamePlaying && !raceFinished) {
+                requestAnimationFrame(gameLoop);
+            } else if (!isGamePlaying && countdownIntervalId === null && !raceFinished) {
+                 // Game paused or waiting to start, keep animating
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            if (!isAnimationRunning) return; // Stop if animation is explicitly paused
+
+            if (!lastTime) lastTime = currentTime;
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if (isGamePlaying && !raceFinished) {
+                SWIMMERS.forEach(swimmer => {
+                    swimmer.update(deltaTime);
+                    checkRaceProgress(swimmer);
+                });
+                // Update player times only if game is playing
+                const now = performance.now();
+                player1Time = now - gameStartTime;
+                player2Time = now - gameStartTime;
+                crowdAnimationOffset += 0.1; // Update crowd animation offset
+            }
+
+            updateScoreboard(); // Always update scoreboard to show current times/laps
+
+            draw();
+
+            if (isAnimationRunning) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function updateScoreboard() {
+            const player1Swimmer = SWIMMERS.find(s => s.id === 'player1');
+            const player2Swimmer = SWIMMERS.find(s => s.id === 'player2');
+
+            // Format time
+            const formatTime = (ms) => {
+                const minutes = Math.floor(ms / 60000);
+                const seconds = Math.floor((ms % 60000) / 1000);
+                const milliseconds = Math.floor(ms % 1000);
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0').substring(0, 3)}`;
+            };
+
+            document.getElementById('player1NameDisplay').textContent = player1Swimmer.name;
+            document.getElementById('player1Time').textContent = formatTime(player1Time);
+            document.getElementById('player1Laps').textContent = `Laps: ${player1Swimmer.currentLap} / ${targetLaps * 2}`; // Laps are round trips (start to end and back)
+
+            document.getElementById('player2NameDisplay').textContent = player2Swimmer.name;
+            document.getElementById('player2Time').textContent = formatTime(player2Time);
+            document.getElementById('player2Laps').textContent = `Laps: ${player2Swimmer.currentLap} / ${targetLaps * 2}`;
+
+            // Update flashing border for leading player
+            if (isGamePlaying && !raceFinished) {
+                const p1LapProgress = player1Swimmer.currentLap + player1Swimmer.progress;
+                const p2LapProgress = player2Swimmer.currentLap + player2Swimmer.progress;
+
+                document.getElementById('player1ScoreItem').classList.remove('flash-border');
+                document.getElementById('player2ScoreItem').classList.remove('flash-border');
+
+                if (p1LapProgress > p2LapProgress) {
+                    document.getElementById('player1ScoreItem').classList.add('flash-border');
+                } else if (p2LapProgress > p1LapProgress) {
+                    document.getElementById('player2ScoreItem').classList.add('flash-border');
+                }
+            } else {
+                // Remove flashing when game is not playing or finished
+                document.getElementById('player1ScoreItem').classList.remove('flash-border');
+                document.getElementById('player2ScoreItem').classList.remove('flash-border');
+            }
+        }
+
+        function checkRaceProgress(swimmer) {
+            if (raceFinished) return;
+
+            const totalLapsNeeded = targetLaps * 2; // Each lap is a full length (start to finish and back)
+
+            if (swimmer.currentLap >= totalLapsNeeded) {
+                // Swimmer has completed all laps
+                raceFinished = true;
+                isGamePlaying = false; // Stop game logic
+
+                if (swimmer.id === 'player1') {
+                    player1Time = performance.now() - gameStartTime;
+                } else if (swimmer.id === 'player2') {
+                    player2Time = performance.now() - gameStartTime;
+                }
+
+                // Announce winner
+                const player1Swimmer = SWIMMERS.find(s => s.id === 'player1');
+                const player2Swimmer = SWIMMERS.find(s => s.id === 'player2');
+
+                let winnerName = "";
+                let winningTime = Infinity;
+
+                if (player1Swimmer.currentLap >= totalLapsNeeded) {
+                    winnerName = player1Swimmer.name;
+                    winningTime = player1Time;
+                }
+                if (player2Swimmer.currentLap >= totalLapsNeeded) {
+                    if (player2Time < winningTime) {
+                        winnerName = player2Swimmer.name;
+                        winningTime = player2Time;
+                    } else if (player2Time === winningTime) {
+                        winnerName = "It's a tie!";
+                    }
+                }
+
+                displayMessage(`${winnerName} wins the race!`, 5000); // Display for 5 seconds
+                playFinishLineSound();
+                setTimeout(resetGame, 5000); // Reset after 5 seconds
+            }
+        }
+
+
+        // Game control functions
+        function startGame() {
+            if (isGamePlaying || countdownIntervalId !== null) return;
+
+            resetGame(false); // Reset but don't clear UI
+            // Disable buttons during countdown
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('resetButton').disabled = true;
+            player1Input.disabled = true;
+            player2Input.disabled = true;
+            player1SwimsuitColor.disabled = true;
+            player2SwimsuitColor.disabled = true;
+            document.getElementById('numLaps').disabled = true;
+            document.getElementById('aiDifficulty').disabled = true;
+            document.getElementById('modeHumanHuman').disabled = true;
+            document.getElementById('modeHumanAIDad').disabled = true;
+            document.getElementById('modeHumanAIMum').disabled = true;
+
+            let countdown = COUNTDOWN_TIME;
+            displayMessage(`Race starts in ${countdown}...`);
+            playRaceStartSound(); // Play a short beep for countdown start
+
+            countdownIntervalId = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    displayMessage(`Race starts in ${countdown}...`);
+                    playRaceStartSound();
+                } else if (countdown === 0) {
+                    displayMessage("GO!");
+                    playRaceStartSound();
+                } else {
+                    clearInterval(countdownIntervalId);
+                    countdownIntervalId = null;
+                    hideMessageBox();
+                    isGamePlaying = true;
+                    raceFinished = false;
+                    gameStartTime = performance.now(); // Record start time
+                    // Re-enable reset button, but keep start disabled until race ends
+                    document.getElementById('resetButton').disabled = false;
+                    // Start game loop if not already running
+                    if (!animationFrameId) {
+                        gameLoop(performance.now());
+                    }
+                }
+            }, 1000);
+        }
+
+        function resetGame(clearUI = true) {
+            console.log("Resetting game...");
+            clearInterval(countdownIntervalId);
+            countdownIntervalId = null;
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            isGamePlaying = false;
+            raceFinished = false;
+            gameStartTime = null;
+            WATER_SPLASHES.length = 0; // Clear all splashes
+            crowdAnimationOffset = 0; // Reset crowd animation offset
+
+            // Reset player-specific states
+            SWIMMERS.forEach(swimmer => {
+                swimmer.progress = 0;
+                swimmer.currentLap = 0;
+                swimmer.swimmingDirection = 1;
+                swimmer.armAngle = 0;
+                swimmer.legAngle = 0;
+                swimmer.lastArmClickTime = 0;
+                swimmer.lastLegClickTime = 0;
+                swimmer.armStrokeCount = 0;
+                swimmer.legStrokeCount = 0;
+                swimmer.actualSpeed = 0;
+                swimmer.splashTimers.length = 0;
+                swimmer.animationCounter = 0;
+            });
+
+            player1Time = 0;
+            player2Time = 0;
+            
+            updateScoreboard(); // Update scoreboard to show reset times/laps
+            hideMessageBox();
+
+            // Enable game start buttons and inputs
+            // Ensure elements are retrieved before attempting to disable/enable
+            const startButton = document.getElementById('startButton');
+            const resetButton = document.getElementById('resetButton');
+            const player1InputElem = document.getElementById('player1Input');
+            const player2InputElem = document.getElementById('player2Input');
+            const player1SwimsuitColorElem = document.getElementById('player1SwimsuitColor');
+            const player2SwimsuitColorElem = document.getElementById('player2SwimsuitColor');
+            const numLapsSelect = document.getElementById('numLaps');
+            const aiDifficultySelect = document.getElementById('aiDifficulty');
+            const modeHumanHumanButton = document.getElementById('modeHumanHuman');
+            const modeHumanAIDadButton = document.getElementById('modeHumanAIDad');
+            const modeHumanAIMumButton = document.getElementById('modeHumanAIMum');
+
+            if (startButton) {
+                startButton.disabled = false;
+                console.log("startButton disabled status after reset:", startButton.disabled);
+            } else { console.error("startButton not found during reset!"); }
+            if (resetButton) {
+                resetButton.disabled = false;
+                console.log("resetButton disabled status after reset:", resetButton.disabled);
+            } else { console.error("resetButton not found during reset!"); }
+            if (player1InputElem) {
+                player1InputElem.disabled = false;
+                console.log("player1InputElem disabled status after reset:", player1InputElem.disabled);
+            } else { console.error("player1InputElem not found during reset!"); }
+            if (player2InputElem) {
+                player2InputElem.disabled = false;
+                console.log("player2InputElem disabled status after reset:", player2InputElem.disabled);
+            } else { console.error("player2InputElem not found during reset!"); }
+            if (player1SwimsuitColorElem) {
+                player1SwimsuitColorElem.disabled = false;
+                console.log("player1SwimsuitColorElem disabled status after reset:", player1SwimsuitColorElem.disabled);
+            } else { console.error("player1SwimsuitColorElem not found during reset!"); }
+            if (player2SwimsuitColorElem) {
+                player2SwimsuitColorElem.disabled = false;
+                console.log("player2SwimsuitColorElem disabled status after reset:", player2SwimsuitColorElem.disabled);
+            } else { console.error("player2SwimsuitColorElem not found during reset!"); }
+            if (numLapsSelect) {
+                numLapsSelect.disabled = false;
+                console.log("numLapsSelect disabled status after reset:", numLapsSelect.disabled);
+            } else { console.error("numLapsSelect not found during reset!"); }
+            if (aiDifficultySelect) {
+                aiDifficultySelect.disabled = false;
+                console.log("aiDifficultySelect disabled status after reset:", aiDifficultySelect.disabled);
+            } else { console.error("aiDifficultySelect not found during reset!"); }
+            if (modeHumanHumanButton) {
+                modeHumanHumanButton.disabled = false;
+                console.log("modeHumanHumanButton disabled status after reset:", modeHumanHumanButton.disabled);
+            } else { console.error("modeHumanHumanButton not found during reset!"); }
+            if (modeHumanAIDadButton) {
+                modeHumanAIDadButton.disabled = false;
+                console.log("modeHumanAIDadButton disabled status after reset:", modeHumanAIDadButton.disabled);
+            } else { console.error("modeHumanAIDadButton not found during reset!"); }
+            if (modeHumanAIMumButton) {
+                modeHumanAIMumButton.disabled = false;
+                console.log("modeHumanAIMumButton disabled status after reset:", modeHumanAIMumButton.disabled);
+            } else { console.error("modeHumanAIMumButton not found during reset!"); }
+
+
+            // Re-render initial state
+            draw();
+            // Ensure animation loop restarts for passive animations (water, crowd)
+            if (!isAnimationRunning) {
+                isAnimationRunning = true;
+                gameLoop(performance.now());
+            }
+        }
+
+        function displayMessage(message, duration = 2000) {
+            const messageBox = document.getElementById('messageBox');
+            if (messageBox) {
+                messageBox.textContent = message;
+                messageBox.style.display = 'block';
+                if (duration > 0) {
+                    setTimeout(() => {
+                        hideMessageBox();
+                    }, duration);
+                }
+            } else {
+                console.error("Message box element not found!");
+            }
+        }
+
+        function hideMessageBox() {
+            const messageBox = document.getElementById('messageBox');
+            if (messageBox) {
+                messageBox.style.display = 'none';
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('keydown', (e) => {
+            if (!isGamePlaying) return; // Only process input if game is playing
+
+            keysPressed[e.key.toLowerCase()] = true;
+
+            const now = performance.now();
+
+            SWIMMERS.forEach(swimmer => {
+                if (swimmer.isPlayer) {
+                    if (e.key.toLowerCase() === swimmer.strokeKey && (now - swimmer.lastArmClickTime > 100)) { // Minimum 100ms between clicks
+                        swimmer.armStrokeCount++;
+                        swimmer.lastArmClickTime = now;
+                        playSplashSound();
+                    }
+                    if (e.key.toLowerCase() === swimmer.kickKey && (now - swimmer.lastLegClickTime > 100)) {
+                        swimmer.legStrokeCount++;
+                        swimmer.lastLegClickTime = now;
+                        playSplashSound();
+                    }
+                }
+            });
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.key.toLowerCase()] = false;
+        });
+
+        // This entire block runs only after the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                // Assign player customization variables after DOM is loaded
+                player1Input = document.getElementById('player1Input');
+                player2Input = document.getElementById('player2Input');
+                player1SwimsuitColor = document.getElementById('player1SwimsuitColor');
+                player2SwimsuitColor = document.getElementById('player2SwimsuitColor');
+
+                console.log("player1Input found:", player1Input);
+                console.log("player2Input found:", player2Input);
+                console.log("player1SwimsuitColor found:", player1SwimsuitColor);
+                console.log("player2SwimsuitColor found:", player2SwimsuitColor);
+
+                // UI Event Listeners
+                const startButton = document.getElementById('startButton');
+                const resetButton = document.getElementById('resetButton');
+                const numLapsSelect = document.getElementById('numLaps');
+                const aiDifficultySelect = document.getElementById('aiDifficulty');
+                const modeHumanHumanButton = document.getElementById('modeHumanHuman');
+                const modeHumanAIDadButton = document.getElementById('modeHumanAIDad');
+                const modeHumanAIMumButton = document.getElementById('modeHumanAIMum');
+
+                console.log("startButton found:", startButton);
+                console.log("resetButton found:", resetButton);
+                console.log("numLapsSelect found:", numLapsSelect);
+                console.log("aiDifficultySelect found:", aiDifficultySelect);
+                console.log("modeHumanHumanButton found:", modeHumanHumanButton);
+                console.log("modeHumanAIDadButton found:", modeHumanAIDadButton);
+                console.log("modeHumanAIMumButton found:", modeHumanAIMumButton);
+
+
+                if (startButton) startButton.addEventListener('click', startGame);
+                if (resetButton) resetButton.addEventListener('click', resetGame);
+
+                if (player1Input) {
+                    player1Input.addEventListener('input', (e) => {
+                        console.log("Player 1 input changed:", e.target.value);
+                        SWIMMERS.find(s => s.id === 'player1').name = e.target.value;
+                        updateScoreboard();
+                    });
+                    console.log("Player 1 input listener attached. Current disabled status:", player1Input.disabled);
+                }
+                if (player2Input) {
+                    player2Input.addEventListener('input', (e) => {
+                        console.log("Player 2 input changed:", e.target.value);
+                        SWIMMERS.find(s => s.id === 'player2').name = e.target.value;
+                        updateScoreboard();
+                    });
+                    console.log("Player 2 input listener attached. Current disabled status:", player2Input.disabled);
+                }
+
+                if (player1SwimsuitColor) {
+                    player1SwimsuitColor.addEventListener('change', (e) => {
+                        console.log("Player 1 color changed:", e.target.value);
+                        SWIMMERS.find(s => s.id === 'player1').color = e.target.value;
+                    });
+                    console.log("Player 1 color listener attached. Current disabled status:", player1SwimsuitColor.disabled);
+                }
+                if (player2SwimsuitColor) {
+                    player2SwimsuitColor.addEventListener('change', (e) => {
+                        console.log("Player 2 color changed:", e.target.value);
+                        SWIMMERS.find(s => s.id === 'player2').color = e.target.value;
+                    });
+                    console.log("Player 2 color listener attached. Current disabled status:", player2SwimsuitColor.disabled);
+                }
+
+                if (numLapsSelect) {
+                    numLapsSelect.addEventListener('change', (e) => {
+                        console.log("Number of laps changed:", e.target.value);
+                        targetLaps = parseInt(e.target.value);
+                        updateScoreboard(); // To update total laps displayed
+                    });
+                    console.log("Num Laps listener attached. Current disabled status:", numLapsSelect.disabled);
+                }
+                if (aiDifficultySelect) {
+                    aiDifficultySelect.addEventListener('change', (e) => {
+                        console.log("AI Difficulty changed:", e.target.value);
+                        aiDifficulty = e.target.value;
+                    });
+                    console.log("AI Difficulty listener attached. Current disabled status:", aiDifficultySelect.disabled);
+                }
+
+                // Game mode buttons
+                document.querySelectorAll('.mode-buttons button').forEach(button => {
+                    if (button) {
+                        button.addEventListener('click', (e) => {
+                            console.log("Game mode button clicked:", e.target.id);
+                            document.querySelectorAll('.mode-buttons button').forEach(btn => btn.classList.remove('active'));
+                            e.target.classList.add('active');
+                            gameMode = e.target.id === 'modeHumanHuman' ? 'human-human' : (e.target.id === 'modeHumanAIDad' ? 'human-ai-dad' : 'human-ai-mum');
+                            console.log("Game mode changed to:", gameMode);
+                            initializeSwimmers(); // Re-initialize swimmers based on new mode
+                            updateScoreboard(); // Update scoreboard names if AI takes over
+                            resetGame(); // Reset game state after mode change
+                        });
+                        console.log(`Attached click listener to ${button.id}. Current disabled status: ${button.disabled}`);
+                    }
+                });
+
+                // Canvas resizing (responsive)
+                function resizeCanvas() {
+                    const container = document.querySelector('.game-container');
+                    const containerWidth = container.clientWidth;
+                    
+                    let newWidth = Math.min(containerWidth * 0.9, 600); // 90% of container or max 600px
+                    let newHeight = newWidth / (16 / 9); // Maintain 16:9 aspect ratio
+
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+
+                    // Recalculate swimmer size if needed (already using ratios, so mostly handled)
+                    SWIMMERS.forEach(swimmer => {
+                         swimmer.swimmerBodyWidth = canvas.width * SWIMMER_WIDTH_RATIO;
+                         swimmer.swimmerBodyHeight = canvas.height * SWIMMER_HEIGHT_RATIO;
+                    });
+
+                    draw(); // Redraw everything after resize
+                    console.log("Canvas resized to:", canvas.width, canvas.height);
+                }
+
+                window.addEventListener('resize', resizeCanvas);
+                console.log("Resize listener attached.");
+
+                // Initial setup calls
+                initializeSwimmers();
+                resizeCanvas(); // Set initial canvas size and draw
+                resetGame(); // Ensure buttons are enabled and game state is reset on load
+                console.log("Initial setup complete.");
+
+                // Visual indicator for script execution
+                const scriptIndicator = document.getElementById('scriptIndicator');
+                if (scriptIndicator) {
+                    scriptIndicator.style.backgroundColor = 'lime'; // Change to green if script runs
+                    console.log("Script indicator turned lime green.");
+                } else {
+                    console.error("Script indicator element not found!");
+                }
+
+                // Final check on disabled status of all relevant elements
+                console.log("Final disabled status check:");
+                console.log("player1Input.disabled:", document.getElementById('player1Input').disabled);
+                console.log("player2Input.disabled:", document.getElementById('player2Input').disabled);
+                console.log("player1SwimsuitColor.disabled:", document.getElementById('player1SwimsuitColor').disabled);
+                console.log("player2SwimsuitColor.disabled:", document.getElementById('player2SwimsuitColor').disabled);
+                console.log("numLaps.disabled:", document.getElementById('numLaps').disabled);
+                console.log("aiDifficulty.disabled:", document.getElementById('aiDifficulty').disabled);
+                console.log("modeHumanHuman.disabled:", document.getElementById('modeHumanHuman').disabled);
+                console.log("modeHumanAIDad.disabled:", document.getElementById('modeHumanAIDad').disabled);
+                console.log("modeHumanAIMum.disabled:", document.getElementById('modeHumanAIMum').disabled);
+
+
+            } catch (error) {
+                console.error("Error during DOMContentLoaded setup:", error);
+                displayMessage("An error occurred during game setup. Please check the console.", 0);
+            }
+        });
+    </script>
+</body>
+</html>
