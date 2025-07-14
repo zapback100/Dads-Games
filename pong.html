@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Awesome Pong Game</title>
+    <!-- Tailwind CSS for basic layout and responsiveness -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for advanced audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling */
+        }
+
+        canvas {
+            background-color: #2f855a; /* Green court */
+            border: 8px solid #4a5568; /* Darker border */
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* Green glow effect */
+            display: block;
+            width: 90%; /* Responsive width */
+            max-width: 1000px; /* Increased max width for longer court */
+            height: auto; /* Maintain aspect ratio */
+            aspect-ratio: 24 / 9; /* Longer game aspect ratio */
+            margin-bottom: 10px; /* Reduced margin */
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1000px; /* Match canvas max-width */
+            padding: 20px;
+            background-color: #2d3748; /* Darker background for controls */
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            color: #e2e8f0; /* Light text */
+        }
+
+        .game-title {
+            font-size: 2rem; /* Smaller font for title */
+            font-weight: bold;
+            color: #f6e05e; /* Yellow color for emphasis */
+            margin-bottom: 15px; /* Space below title */
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: center; /* Centered scoreboard */
+            align-items: center;
+            width: 100%;
+            max-width: 400px; /* Constrain scoreboard width */
+            margin-bottom: 15px; /* Increased margin */
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #a0aec0;
+            background-color: #3a475a;
+            padding: 10px 20px; /* Increased padding */
+            border-radius: 10px;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+            gap: 20px; /* Space between score items */
+        }
+
+        .score-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px 10px; /* Adjusted padding */
+            border-radius: 8px;
+            background-color: #4a5568;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: 2px solid transparent; /* Default border */
+        }
+
+        /* New CSS for flashing scoreboard border */
+        @keyframes flashBorder {
+            0% { border-color: #4a5568; box-shadow: 0 0 8px rgba(0, 0, 0, 0.3); }
+            50% { border-color: #f6e05e; box-shadow: 0 0 20px #f6e05e; } /* Yellow glow */
+            100% { border-color: #4a5568; box-shadow: 0 0 8px rgba(0, 0, 0, 0.3); }
+        }
+
+        .score-item.flash-border {
+            animation: flashBorder 0.8s infinite alternate; /* Flash continuously */
+        }
+
+
+        .score-name {
+            font-size: 0.9rem;
+            color: #cbd5e0;
+            margin-bottom: 2px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .score-line {
+            display: flex;
+            align-items: baseline;
+            gap: 5px;
+            font-size: 1.5rem;
+        }
+
+        .set-score-display {
+            font-size: 0.8em;
+            color: #cbd5e0;
+            opacity: 0.8;
+        }
+
+        .controls {
+            display: grid; /* Use grid for better layout */
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive columns */
+            gap: 0.5rem; /* Reduced gap */
+            padding: 0.5rem; /* Reduced padding */
+            background-color: #2d3748; /* Darker background for controls */
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .player-controls, .game-settings {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem; /* Reduced gap within groups */
+            padding: 0.5rem; /* Reduced padding */
+            background-color: #3a475a; /* Slightly lighter dark background for groups */
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .player-controls h3 {
+            font-size: 1rem; /* Slightly smaller heading */
+            font-weight: bold;
+            color: #e2e8f0;
+            margin-bottom: 0.1rem; /* Reduced margin */
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.05rem; /* Even smaller gap for label-input pairs */
+            width: 100%; /* Make control groups take full width of their parent */
+        }
+
+        input[type="text"], select {
+            background-color: #4a5568;
+            border: 1px solid #6a7382;
+            border-radius: 6px;
+            padding: 3px 6px; /* Reduced padding */
+            color: #e2e8f0;
+            outline: none;
+            width: calc(100% - 12px); /* Adjust width to account for padding */
+            max-width: 140px; /* Max width for inputs */
+            font-size: 0.65rem; /* Smaller font size */
+        }
+
+        .speed-buttons button, .player-mode-buttons button {
+            background-color: #5a67d8; /* Indigo for speed buttons */
+            padding: 3px 7px; /* Adjusted padding for better look */
+            border-radius: 6px; /* Match other inputs */
+            font-size: 0.65rem; /* Smaller font size */
+        }
+        .speed-buttons button:hover, .player-mode-buttons button:hover {
+            background-color: #4c51bf;
+        }
+        .speed-buttons button.active, .player-mode-buttons button.active {
+            background-color: #667eea; /* Lighter indigo for active */
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.5);
+        }
+
+        label {
+            font-size: 0.65rem; /* Smaller font size */
+            color: #a0aec0;
+        }
+
+        .game-buttons {
+            display: flex;
+            gap: 6px; /* Reduced gap */
+            margin-top: 0.5rem; /* Reduced space from speed buttons */
+        }
+
+        button {
+            background-color: #4299e1; /* Blue button */
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            background-color: #6b7280; /* Gray out disabled buttons */
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #messageBox {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 25px 40px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        @media (max-width: 768px) { /* Adjusted breakpoint for controls grid */
+            .controls {
+                grid-template-columns: 1fr; /* Single column on smaller screens */
+                padding: 0.5rem; /* Reduced padding */
+                gap: 0.5rem; /* Reduced gap */
+            }
+            .player-controls, .game-settings {
+                padding: 0.3rem; /* Reduced padding */
+            }
+            input[type="text"], select {
+                width: calc(100% - 12px);
+            }
+            button {
+                padding: 4px 8px;
+                font-size: 0.7rem;
+            }
+            .player-controls h3 {
+                font-size: 0.9rem;
+            }
+            .game-title {
+                font-size: 2rem; /* Smaller title on small screens */
+            }
+        }
+
+        @media (max-width: 640px) {
+            .scoreboard {
+                font-size: 0.8rem; /* Even smaller on very small screens */
+                padding: 2px 5px;
+            }
+            .score-name {
+                font-size: 0.55rem;
+            }
+            .score-line {
+                font-size: 1.2rem;
+            }
+            .set-score-display {
+                font-size: 0.7em;
+            }
+            label {
+                font-size: 0.55rem; /* Even smaller on very small screens */
+            }
+            input[type="text"], select {
+                font-size: 0.55rem; /* Even smaller on very small screens */
+            }
+            .speed-buttons button {
+                font-size: 0.55rem; /* Even smaller on very small screens */
+            }
+            .game-title {
+                font-size: 1.5rem; /* Smallest title on very small screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h2 class="game-title">Dads Super Pong</h2>
+        <div class="scoreboard">
+            <div id="player1ScoreItem" class="score-item">
+                <span id="player1NameDisplay" class="score-name">Player 1</span>
+                <div class="score-line">
+                    <span id="player1Score">0</span>
+                    <span class="set-score-display">(Sets: <span id="player1Sets">0</span>)</span>
+                </div>
+            </div>
+            <div id="player2ScoreItem" class="score-item">
+                <span id="player2NameDisplay" class="score-name">Player 2</span>
+                <div class="score-line">
+                    <span id="player2Score">0</span>
+                    <span class="set-score-display">(Sets: <span id="player2Sets">0</span>)</span>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="pongCanvas"></canvas>
+
+        <div class="controls">
+            <div class="player-controls">
+                <h3 class="text-lg font-semibold text-white">Player 1</h3>
+                <div class="control-group">
+                    <label for="player1Input">Name</label>
+                    <input type="text" id="player1Input" value="Player 1" maxlength="15">
+                </div>
+                <div class="control-group">
+                    <label for="player1ShirtColor">Shirt Color</label>
+                    <select id="player1ShirtColor">
+                        <option value="#e2e8f0">White</option>
+                        <option value="#FF0000">Red</option>
+                        <option value="#0000FF">Blue</option>
+                        <option value="#FFC0CB">Pink</option> <!-- Added Pink -->
+                        <option value="#FFFF00">Yellow</option>
+                        <option value="#800080">Purple</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="player1EyeStyle">Eye Style</label>
+                    <select id="player1EyeStyle">
+                        <option value="normal">Normal</option>
+                        <option value="angry">Angry</option>
+                        <option value="sleepy">Sleepy</option>
+                        <option value="big">Big</option>
+                        <option value="small">Small</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <h3 class="text-lg font-semibold text-white">Player 2</h3>
+                <div class="control-group">
+                    <label for="player2Input">Name (Up/Down)</label>
+                    <input type="text" id="player2Input" value="Player 2" maxlength="15">
+                </div>
+                <div class="control-group">
+                    <label for="player2ShirtColor">Shirt Color</label>
+                    <select id="player2ShirtColor">
+                        <option value="#e2e8f0">White</option>
+                        <option value="#FF0000">Red</option>
+                        <option value="#0000FF">Blue</option>
+                        <option value="#FFC0CB">Pink</option> <!-- Added Pink -->
+                        <option value="#FFFF00">Yellow</option>
+                        <option value="#800080">Purple</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="player2EyeStyle">Eye Style</label>
+                    <select id="player2EyeStyle">
+                        <option value="normal">Normal</option>
+                        <option value="angry">Angry</option>
+                        <option value="sleepy">Sleepy</option>
+                        <option value="big">Big</option>
+                        <option value="small">Small</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="game-settings">
+                <h3 class="text-lg font-semibold text-white">Game Settings</h3>
+                <div class="control-group speed-buttons">
+                    <label>Ball Speed</label>
+                    <div class="flex gap-2">
+                        <button id="speedSlow">Slow</button>
+                        <button id="speedMedium" class="active">Medium</button>
+                        <button id="speedFast">Fast</button>
+                    </div>
+                </div>
+                <div class="control-group player-mode-buttons">
+                    <label>Player 1 Mode</label>
+                    <div class="flex gap-2">
+                        <button id="modeHumanHuman" class="active">2 Players</button>
+                        <button id="modeHumanAIDad">Play Dad</button>
+                        <button id="modeHumanAIMum">Play Mum</button>
+                    </div>
+                </div>
+                <div class="game-buttons">
+                    <button id="startButton">Start Game</button>
+                    <button id="resetButton">Reset Game</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageBox"></div>
+
+    <script>
+        // Console log to check if script starts running
+        console.log("Script loaded and running!");
+
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game constants (some will become let variables)
+        const PADDLE_WIDTH = 12; // Made smaller
+        let PADDLE_HEIGHT = 70; // Made smaller
+        const BALL_RADIUS = 10;
+        const PADDLE_SPEED = 2.0; // Made slower as requested
+        const WINNING_SCORE = 4; // Changed to 4 points per set
+        const WINNING_SETS = 3; // Changed to 3 sets
+        const CROWD_MEMBER_RADIUS = 10; // Radius of a crowd member's head
+        const FIXED_CROWD_PER_SIDE = 12; // Changed to 12 crowd members per side
+
+        // Reduced PADDLE_BUFFER_FROM_GRANDSTAND to make court wider
+        const PADDLE_BUFFER_FROM_GRANDSTAND = 5;
+        const WALK_SPEED = 2.0; // Increased walk speed for faster migration
+        const CELEBRATION_DURATION = 5000; // 5 seconds for celebration (music, lights, message)
+
+        // Crowd Path constants (some will be adjusted)
+        const CROWD_PATH_HEIGHT_BASE = CROWD_MEMBER_RADIUS * 2 + 10; // Base height of horizontal paths (increased slightly for more clearance)
+        const CROWD_PATH_WIDTH = CROWD_MEMBER_RADIUS * 2 + 10; // Width of vertical paths (increased slightly for more clearance)
+        let CROWD_PATH_BUFFER_FROM_COURT = 30; // Increased buffer for clearer separation
+
+        // New constant for the fixed width of the blue seating area
+        const GRANDSTAND_SEATING_WIDTH_FIXED = 130; // Slightly reduced size for blue seating area
+
+        // Derived constant (depends on CROWD_DEPTH) - now less relevant for grandstand drawing
+        let GRANDSTAND_TOTAL_WIDTH; // Total width of the grandstand area (seating + path)
+
+        // Global variables for court boundaries
+        let COURT_LEFT_X;
+        let COURT_RIGHT_X;
+        let COURT_TOP_Y;
+        let COURT_BOTTOM_Y;
+
+        // Game state variables
+        let player1Score = 0;
+        let player2Score = 0;
+        let player1Sets = 0; // New: Track sets won
+        let player2Sets = 0; // New: Track sets won
+        let paddle1Y, paddle2Y;
+        let ballX, ballY, ballDX, ballDY;
+        let animationFrameId;
+        let countdownIntervalId = null; // New: To manage countdown timer
+        let crowdMoodResetTimer = null; // New: For resetting crowd mood after set/game end
+        let crowdMigrationPromise = Promise.resolve(); // To track crowd migration completion
+        let lastScoringPlayer = null; // 'player1' or 'player2', null initially
+
+        // Global state flags for controlling game flow and animation
+        let isGamePlaying = false; // Controls ball and paddle movement (gameplay)
+        let isAnimationRunning = true; // Controls if requestAnimationFrame loop is active
+        let isMigrationInProgress = false; // Tracks if crowd migration is active
+
+        // Player names and ball speed
+        let player1Name = document.getElementById('player1Input').value;
+        let player2Name = document.getElementById('player2Input').value;
+        let currentBallSpeed = 4; // Default to medium speed
+
+        // Player colors and eye styles
+        let player1Color = document.getElementById('player1ShirtColor').value;
+        let player2Color = document.getElementById('player2ShirtColor').value;
+        let player1EyeStyle = document.getElementById('player1EyeStyle').value;
+        let player2EyeStyle = document.getElementById('player2EyeStyle').value;
+
+        // New: Game Mode (human-human, human-ai-dad, human-ai-mum)
+        let gameMode = 'human-human'; // Default to 2 human players
+
+        // Crowd member data: { color: string, mood: string, initialX: number, initialY: number, currentX: number, currentY: number, isWalking: boolean, walkState: string, walkTargetX: number, walkTargetY: number, migrationResolve: function | null, side: string }
+        let allCrowdMembers = []; // Single array for all crowd members
+
+        // To manage temporary smiles on paddle hit
+        let currentSmileTimers = []; // Initialize as empty array
+
+        // New constants for paddle eyes
+        const PADDLE_EYE_RADIUS = 4; // Default eye radius
+        const PADDLE_PUPIL_RADIUS = 2; // Pupil radius
+        const PADDLE_EYE_HORIZONTAL_OFFSET = 12; // Increased distance of eyes
+        const PADDLE_EYE_VERTICAL_SEPARATION = PADDLE_EYE_RADIUS * 2 + 2; // Space between vertical eyes
+
+        // Key states for continuous paddle movement
+        const keysPressed = {};
+
+        // AudioContext for generating simple sounds
+        let audioContext;
+        // Tone.js variables
+        let migrationSynth = null;
+        let migrationLoop = null;
+        let winnerSynth = null; // New: For winner music
+        let winnerSequence = null; // New: For winner music melody
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Function to play a simple beep sound
+        function playBeep(frequency, duration, volume) {
+            initAudioContext();
+            if (!audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency; // Hz
+            gainNode.gain.value = volume; // 0 to 1
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        // Function to play a "clapping" or "cheering" sound
+        function playClapSound() {
+            initAudioContext();
+            if (!audioContext) return;
+
+            const baseFrequency = 500;
+            const duration = 0.05; // Short duration for each clap
+            const volume = 0.6;
+            const numClaps = 60; // Increased to make the sound last longer (approx 5 seconds with 80ms interval)
+            const interval = 80; // ms between claps
+
+            for (let i = 0; i < numClaps; i++) {
+                setTimeout(() => {
+                    const freq = baseFrequency + Math.random() * 200; // Slightly varying frequency
+                    playBeep(freq, duration, volume);
+                }, i * interval);
+            }
+        }
+
+        // Tone.js functions for migration music
+        function initToneJs() {
+            // Tone.start() needs to be called on a user gesture.
+            // We'll call it once when the first button is clicked.
+            if (Tone.context.state !== 'running') {
+                Tone.start().then(() => {
+                    console.log("Tone.js audio context started.");
+                }).catch(e => console.error("Error starting Tone.js audio context:", e));
+            }
+        }
+
+        function startHappyMigrationMusic() {
+            initToneJs(); // Ensure context is running
+            if (migrationSynth) {
+                stopHappyMigrationMusic(); // Stop any existing music first
+            }
+
+            // Create a simple synth
+            migrationSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: {
+                    type: "triangle" // Softer tone
+                },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.1,
+                    sustain: 0.2,
+                    release: 0.5
+                }
+            }).toDestination();
+
+            // Define a cheerful arpeggio pattern
+            const notes = ["C4", "E4", "G4", "C5"];
+            let index = 0;
+
+            // Create a loop to play the notes
+            migrationLoop = new Tone.Loop(time => {
+                migrationSynth.triggerAttackRelease(notes[index % notes.length], "8n", time);
+                index++;
+            }, "4n").start(0); // Play a note every quarter note
+
+            Tone.Transport.start(); // Start the Tone.js transport
+            console.log("Happy migration music started.");
+        }
+
+        function stopHappyMigrationMusic() {
+            if (migrationLoop) {
+                migrationLoop.stop();
+                migrationLoop.dispose();
+                migrationLoop = null;
+            }
+            if (migrationSynth) {
+                migrationSynth.dispose();
+                migrationSynth = null;
+            }
+            // Only stop Tone.Transport if no other loops/sequences are running
+            if (Tone.Transport.state === 'started' && !winnerSequence) { // Check if winnerSequence is null
+                Tone.Transport.stop();
+            }
+            console.log("Happy migration music stopped.");
+        }
+
+        // New functions for winner music
+        function playWinnerMusic() {
+            initToneJs(); // Ensure context is running
+            if (winnerSynth) stopWinnerMusic(); // Stop any existing music
+
+            winnerSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: {
+                    type: "sine" // Clearer tone for celebration
+                },
+                envelope: {
+                    attack: 0.05,
+                    decay: 0.3,
+                    sustain: 0.5,
+                    release: 1
+                }
+            }).toDestination();
+
+            const melody = [
+                { note: "C5", duration: "8n" },
+                { note: "E5", duration: "8n" },
+                { note: "G5", duration: "8n" },
+                { note: "C6", duration: "4n" },
+                { note: null, duration: "8n" }, // Rest
+                { note: "G5", duration: "8n" },
+                { note: "E5", duration: "8n" },
+                { note: "C5", duration: "4n" }
+            ];
+
+            winnerSequence = new Tone.Sequence((time, value) => {
+                if (value.note) {
+                    winnerSynth.triggerAttackRelease(value.note, value.duration, time);
+                }
+            }, melody, "8n").start(0);
+
+            Tone.Transport.start();
+            console.log("Winner music started.");
+        }
+
+        function stopWinnerMusic() {
+            if (winnerSequence) {
+                winnerSequence.stop();
+                winnerSequence.dispose();
+                winnerSequence = null;
+            }
+            if (winnerSynth) {
+                winnerSynth.dispose();
+                winnerSynth = null;
+            }
+            // Only stop Tone.Transport if no other loops/sequences are running
+            if (Tone.Transport.state === 'started' && !migrationLoop) { // Check if migrationLoop is null
+                Tone.Transport.stop();
+            }
+            console.log("Winner music stopped.");
+        }
+
+        // Function to generate a random hex color
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Function to draw a single crowd member with an expression and a specific color
+        function drawCrowdMember(x, y, mood, color) {
+            const headRadius = CROWD_MEMBER_RADIUS;
+            const eyeRadius = 2;
+            const eyeOffset = 4;
+            const mouthWidth = 10;
+            const mouthYOffset = 4;
+
+            // Only draw if within canvas bounds (or slightly outside for smooth entry/exit)
+            if (x < -headRadius || x > canvas.width + headRadius || y < -headRadius * 2 || y > canvas.height + headRadius) {
+                return;
+            }
+
+            // Head
+            ctx.beginPath();
+            ctx.arc(x, y, headRadius, 0, Math.PI * 2);
+            ctx.fillStyle = color; // Use the passed color for the crowd member
+            ctx.fill();
+            ctx.strokeStyle = '#000000'; // Black border for clarity
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Eyes
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x - eyeOffset, y - eyeRadius, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + eyeOffset, y - eyeRadius, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mouth
+            ctx.beginPath();
+            if (mood === 'happy') {
+                ctx.arc(x, y + mouthYOffset, mouthWidth / 2, 0, Math.PI, false); // Smile
+            } else if (mood === 'sad') {
+                ctx.arc(x, y + mouthYOffset + 2, mouthWidth / 2, 0, Math.PI, true); // Frown
+            } else { // Neutral
+                ctx.moveTo(x - mouthWidth / 2, y + mouthYOffset);
+                ctx.lineTo(x + mouthWidth / 2, y + mouthYOffset);
+            }
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        // Function to draw eyes on the paddle with white background and black pupil
+        function drawPaddleEyes(paddleX, paddleY, paddleWidth, paddleHeight, direction, eyeStyle) {
+            let eyeRadius = PADDLE_EYE_RADIUS;
+            let pupilRadius = PADDLE_PUPIL_RADIUS;
+
+            if (eyeStyle === 'big') {
+                eyeRadius = PADDLE_EYE_RADIUS * 1.5;
+                pupilRadius = PADDLE_PUPIL_RADIUS * 1.5;
+            } else if (eyeStyle === 'small') {
+                eyeRadius = PADDLE_EYE_RADIUS * 0.7;
+                pupilRadius = PADDLE_PUPIL_RADIUS * 0.7;
+            }
+
+            let eye1X, eye2X;
+            const eye1Y = paddleY + paddleHeight / 2 - PADDLE_EYE_VERTICAL_SEPARATION / 2;
+            const eye2Y = paddleY + paddleHeight / 2 + PADDLE_EYE_VERTICAL_SEPARATION / 2;
+
+            if (direction === 'right') { // Player 1, eyes look right
+                eye1X = paddleX + paddleWidth / 2 + PADDLE_EYE_HORIZONTAL_OFFSET;
+                eye2X = paddleX + paddleWidth / 2 + PADDLE_EYE_HORIZONTAL_OFFSET;
+            } else { // Player 2, eyes look left
+                eye1X = paddleX + paddleWidth / 2 - PADDLE_EYE_HORIZONTAL_OFFSET;
+                eye2X = paddleX + paddleWidth / 2 - PADDLE_EYE_HORIZONTAL_OFFSET;
+            }
+
+            // Draw white eye background
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw black pupils
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(eye1X, eye1Y, pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(eye2X, eye2Y, pupilRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Add expression based on eyeStyle (eyebrows/lashes)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5;
+
+            // Removed happy eye drawing logic as requested
+            if (eyeStyle === 'angry') {
+                ctx.beginPath();
+                if (direction === 'right') { // Player 1, angry eyes slanted inwards
+                    ctx.moveTo(eye1X - eyeRadius, eye1Y - eyeRadius - 2);
+                    ctx.lineTo(eye1X + eyeRadius, eye1Y - eyeRadius);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(eye2X - eyeRadius, eye2Y - eyeRadius);
+                    ctx.lineTo(eye2X + eyeRadius, eye2Y - eyeRadius - 2);
+                    ctx.stroke();
+                } else { // Player 2, angry eyes slanted inwards
+                    ctx.moveTo(eye1X - eyeRadius, eye1Y - eyeRadius);
+                    ctx.lineTo(eye1X + eyeRadius, eye1Y - eyeRadius - 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(eye2X - eyeRadius, eye2Y - eyeRadius - 2);
+                    ctx.lineTo(eye2X + eyeRadius, eye2Y - eyeRadius);
+                    ctx.stroke();
+                }
+            } else if (eyeStyle === 'sleepy') {
+                ctx.beginPath();
+                ctx.moveTo(eye1X - eyeRadius, eye1Y);
+                ctx.bezierCurveTo(eye1X - eyeRadius, eye1Y + eyeRadius, eye1X + eyeRadius, eye1Y + eyeRadius, eye1X + eyeRadius, eye1Y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(eye2X - eyeRadius, eye2Y);
+                ctx.bezierCurveTo(eye2X - eyeRadius, eye2Y + eyeRadius, eye2X + eyeRadius, eye2Y + eyeRadius, eye2X + eyeRadius, eye2Y);
+                ctx.stroke();
+            }
+            // For 'normal', 'big', 'small', just the circles and pupils are drawn.
+        }
+
+        // --- Game Initialization and Reset ---
+        function initGame() {
+            // Set canvas dimensions based on its current CSS size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            // Update player names, colors, and eye styles from inputs
+            player1Name = document.getElementById('player1Input').value;
+            player2Name = document.getElementById('player2Input').value;
+            player1Color = document.getElementById('player1ShirtColor').value;
+            player2Color = document.getElementById('player2ShirtColor').value;
+            player1EyeStyle = document.getElementById('player1EyeStyle').value;
+            player2EyeStyle = document.getElementById('player2EyeStyle').value;
+
+            // Handle Player 1 name and input based on gameMode
+            const player1Input = document.getElementById('player1Input');
+            const player1InputLabel = document.querySelector('label[for="player1Input"]');
+            const player1ShirtColorSelect = document.getElementById('player1ShirtColor');
+            const player1EyeStyleSelect = document.getElementById('player1EyeStyle'); // Get eye style select for Player 1
+
+            if (gameMode === 'human-ai-dad') {
+                player1Name = 'Dad';
+                player1Input.value = 'Dad';
+                player1Input.disabled = true;
+                player1InputLabel.textContent = 'Name (Dad AI)';
+                player1Color = '#0000FF'; // Dad is blue
+                player1ShirtColorSelect.value = '#0000FF';
+                player1ShirtColorSelect.disabled = true;
+                player1EyeStyle = 'big'; // Dad has big eyes
+                player1EyeStyleSelect.value = 'big';
+                player1EyeStyleSelect.disabled = true;
+            } else if (gameMode === 'human-ai-mum') {
+                player1Name = 'Mum';
+                player1Input.value = 'Mum';
+                player1Input.disabled = true;
+                player1InputLabel.textContent = 'Name (Mum AI)';
+                player1Color = '#FF0000'; // Mum is red
+                player1ShirtColorSelect.value = '#FF0000';
+                player1ShirtColorSelect.disabled = true;
+                player1EyeStyle = 'small'; // Mum has small eyes
+                player1EyeStyleSelect.value = 'small';
+                player1EyeStyleSelect.disabled = true;
+            } else { // human-human
+                player1Name = 'Player 1';
+                player1Input.value = 'Player 1';
+                player1Input.disabled = false;
+                player1InputLabel.textContent = 'Name (W/S)';
+                player1ShirtColorSelect.disabled = false; // Enable color selection for human
+                player1Color = player1ShirtColorSelect.value; // Ensure color is read from select
+                player1EyeStyleSelect.disabled = false; // Enable eye style selection for human
+                player1EyeStyle = player1EyeStyleSelect.value; // Ensure eye style is read from select
+            }
+            document.getElementById('player1NameDisplay').textContent = player1Name;
+
+
+            // Update scoreboard border colors
+            document.getElementById('player1ScoreItem').style.borderColor = player1Color;
+            document.getElementById('player2ScoreItem').style.borderColor = player2Color;
+
+            // Calculate GRANDSTAND_TOTAL_WIDTH based on fixed seating width and path width
+            GRANDSTAND_TOTAL_WIDTH = GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_PATH_WIDTH;
+
+            // Recalculate COURT_LEFT_X, COURT_RIGHT_X, COURT_TOP_Y, COURT_BOTTOM_Y with the new buffer
+            COURT_LEFT_X = GRANDSTAND_TOTAL_WIDTH + PADDLE_BUFFER_FROM_GRANDSTAND;
+            COURT_RIGHT_X = canvas.width - GRANDSTAND_TOTAL_WIDTH - PADDLE_BUFFER_FROM_GRANDSTAND;
+            COURT_TOP_Y = CROWD_PATH_HEIGHT_BASE + CROWD_PATH_BUFFER_FROM_COURT;
+            COURT_BOTTOM_Y = canvas.height - CROWD_PATH_HEIGHT_BASE - CROWD_PATH_BUFFER_FROM_COURT;
+
+            player1Score = 0;
+            player2Score = 0;
+            player1Sets = 0; // Reset sets on full game reset
+            player2Sets = 0; // Reset sets on full game reset
+            updateScoreboard();
+
+            // Initial paddle positions relative to court boundaries
+            paddle1Y = (COURT_TOP_Y + COURT_BOTTOM_Y - PADDLE_HEIGHT) / 2;
+            paddle2Y = (COURT_TOP_Y + COURT_BOTTOM_Y - PADDLE_HEIGHT) / 2;
+
+            lastScoringPlayer = null; // Reset last scoring player on full game reset
+            resetBall();
+            isGamePlaying = false; // Game starts paused until 'Start' is clicked
+            document.getElementById('messageBox').style.display = 'none'; // Hide any previous messages
+            document.getElementById('startButton').textContent = 'Start Game';
+            document.getElementById('startButton').disabled = false; // Ensure button is enabled on reset
+
+            // Clear any active smile timers
+            currentSmileTimers.forEach(timerId => clearTimeout(timerId));
+            currentSmileTimers = [];
+
+            // Clear any active countdown
+            if (countdownIntervalId) {
+                clearInterval(countdownIntervalId);
+                countdownIntervalId = null;
+            }
+            // Clear any pending crowd mood reset
+            if (crowdMoodResetTimer) {
+                clearTimeout(crowdMoodResetTimer);
+                crowdMoodResetTimer = null;
+            }
+            // Reset crowd migration promise and flag
+            crowdMigrationPromise = Promise.resolve();
+            isMigrationInProgress = false;
+            stopHappyMigrationMusic(); // Stop migration music on reset
+            stopWinnerMusic(); // Stop winner music on reset
+
+            // Remove flash-border class from score items on reset
+            document.getElementById('player1ScoreItem').classList.remove('flash-border');
+            document.getElementById('player2ScoreItem').classList.remove('flash-border');
+
+
+            // Generate crowd members data (colors and initial neutral moods)
+            allCrowdMembers = [];
+
+            // Helper function to generate non-overlapping seating spots
+            function generateSeatingSpots(side) {
+                const spots = [];
+                const memberDiameterWithPadding = CROWD_MEMBER_RADIUS * 2 + 5; // Diameter + padding
+
+                let minX, maxX;
+                if (side === 'left') {
+                    minX = CROWD_MEMBER_RADIUS; // Start from the edge of the grandstand, considering radius
+                    maxX = GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_MEMBER_RADIUS; // End at the other edge
+                } else { // 'right'
+                    minX = canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_MEMBER_RADIUS;
+                    maxX = canvas.width - CROWD_MEMBER_RADIUS;
+                }
+
+                const minY = CROWD_PATH_HEIGHT_BASE + CROWD_MEMBER_RADIUS;
+                const maxY = canvas.height - CROWD_PATH_HEIGHT_BASE - CROWD_MEMBER_RADIUS;
+
+                // Calculate how many columns and rows can fit
+                // Ensure at least one column/row if space allows for a single member
+                const numCols = Math.max(1, Math.floor((maxX - minX) / memberDiameterWithPadding));
+                const numRows = Math.max(1, Math.floor((maxY - minY) / memberDiameterWithPadding));
+
+                // Calculate actual step size to distribute them evenly within the available space
+                const horizontalStep = numCols > 1 ? (maxX - minX) / (numCols - 1) : 0;
+                const verticalStep = numRows > 1 ? (maxY - minY) / (numRows - 1) : 0;
+
+
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        // Calculate center of the spot
+                        const x = minX + col * horizontalStep;
+                        const y = minY + row * verticalStep;
+
+                        spots.push({ x, y });
+                    }
+                }
+                return spots;
+            }
+
+            // Shuffle array helper
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            const allLeftSpots = generateSeatingSpots('left');
+            const allRightSpots = generateSeatingSpots('right');
+
+            shuffleArray(allLeftSpots);
+            shuffleArray(allRightSpots);
+
+            // Populate Player 1 Crowd (left side)
+            for (let i = 0; i < FIXED_CROWD_PER_SIDE; i++) {
+                if (i < allLeftSpots.length) { // Ensure we don't go out of bounds if not enough spots
+                    const spot = allLeftSpots[i];
+                    allCrowdMembers.push({
+                        color: getRandomColor(),
+                        mood: 'neutral',
+                        initialX: spot.x,
+                        initialY: spot.y,
+                        currentX: spot.x,
+                        currentY: spot.y,
+                        isWalking: false,
+                        walkState: 'seated',
+                        walkTargetX: 0,
+                        walkTargetY: 0,
+                        migrationResolve: null,
+                        side: 'left'
+                    });
+                } else {
+                    console.warn(`Not enough unique spots for all ${FIXED_CROWD_PER_SIDE} crowd members on the left side. Generated ${allLeftSpots.length} spots.`);
+                    break; // Stop if no more spots
+                }
+            }
+
+            // Populate Player 2 Crowd (right side)
+            for (let i = 0; i < FIXED_CROWD_PER_SIDE; i++) {
+                if (i < allRightSpots.length) { // Ensure we don't go out of bounds if not enough spots
+                    const spot = allRightSpots[i];
+                    allCrowdMembers.push({
+                        color: getRandomColor(),
+                        mood: 'neutral',
+                        initialX: spot.x,
+                        initialY: spot.y,
+                        currentX: spot.x,
+                        currentY: spot.y,
+                        isWalking: false,
+                        walkState: 'seated',
+                        walkTargetX: 0,
+                        walkTargetY: 0,
+                        migrationResolve: null,
+                        side: 'right'
+                    });
+                } else {
+                    console.warn(`Not enough unique spots for all ${FIXED_CROWD_PER_SIDE} crowd members on the right side. Generated ${allRightSpots.length} spots.`);
+                    break; // Stop if no more spots
+                }
+            }
+
+            console.log("Total crowd members initialized:", allCrowdMembers.length);
+            allCrowdMembers.forEach((member, index) => {
+                console.log(`Crowd member ${index}: initialX=${member.initialX}, initialY=${member.initialY}, side=${member.side}`);
+            });
+        }
+
+        function resetBall() {
+            // Determine initial X direction based on last scorer, or random for first serve
+            // If player1 scored, player2 serves, so ball goes left (-1). If player2 scored, player1 serves, so ball goes right (1).
+            const initialDirection = (lastScoringPlayer === 'player1') ? -1 : 1;
+
+            // Ball resets based on who scored last, or random for first serve
+            if (lastScoringPlayer === 'player1') { // Player 1 scored, so Player 2 serves (ball starts on right, moves left)
+                ballX = COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH - BALL_RADIUS;
+                ballY = paddle2Y + PADDLE_HEIGHT / 2;
+            } else if (lastScoringPlayer === 'player2') { // Player 2 scored, so Player 1 serves (ball starts on left, moves right)
+                ballX = COURT_LEFT_X + PADDLE_BUFFER_FROM_GRANDSTAND + PADDLE_WIDTH + BALL_RADIUS;
+                ballY = paddle1Y + PADDLE_HEIGHT / 2;
+            } else { // First serve of the game, random side
+                if (Math.random() > 0.5) { // Serve from player 1's side (ball starts on left, moves right)
+                    ballX = COURT_LEFT_X + PADDLE_BUFFER_FROM_GRANDSTAND + PADDLE_WIDTH + BALL_RADIUS;
+                    ballY = paddle1Y + PADDLE_HEIGHT / 2;
+                } else { // Serve from player 2's side (ball starts on right, moves left)
+                    ballX = COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH - BALL_RADIUS;
+                    ballY = paddle2Y + PADDLE_HEIGHT / 2;
+                }
+            }
+
+            // Set ball velocity components based on currentBallSpeed and a random angle
+            const angle = (Math.random() * (Math.PI / 2)) - (Math.PI / 4); // Angle between -45 and +45 degrees
+            ballDX = currentBallSpeed * Math.cos(angle) * initialDirection;
+            ballDY = currentBallSpeed * Math.sin(angle);
+        }
+
+        // --- Drawing Functions ---
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grandstand background (blue sitting area)
+            ctx.fillStyle = '#4299e1'; // Blue color for grandstands
+            // Left grandstand: starts at 0, goes for GRANDSTAND_SEATING_WIDTH_FIXED
+            ctx.fillRect(0, CROWD_PATH_HEIGHT_BASE, GRANDSTAND_SEATING_WIDTH_FIXED, canvas.height - 2 * CROWD_PATH_HEIGHT_BASE);
+            // Right grandstand: starts at canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED, goes for GRANDSTAND_SEATING_WIDTH_FIXED
+            ctx.fillRect(canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED, CROWD_PATH_HEIGHT_BASE, GRANDSTAND_SEATING_WIDTH_FIXED, canvas.height - 2 * CROWD_PATH_HEIGHT_BASE);
+
+            // Draw crowd path around the court (grey path)
+            ctx.fillStyle = '#a0aec0'; // Light gray for the path
+
+            // Top horizontal path segment
+            ctx.fillRect(0, 0, canvas.width, CROWD_PATH_HEIGHT_BASE);
+
+            // Bottom horizontal path segment
+            ctx.fillRect(0, canvas.height - CROWD_PATH_HEIGHT_BASE, canvas.width, CROWD_PATH_HEIGHT_BASE);
+
+            // Left vertical path segment: positioned at the right edge of the left grandstand seating area
+            ctx.fillRect(GRANDSTAND_SEATING_WIDTH_FIXED, 0, CROWD_PATH_WIDTH, canvas.height);
+
+            // Right vertical path segment: positioned at the left edge of the right grandstand seating area
+            ctx.fillRect(canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_PATH_WIDTH, 0, CROWD_PATH_WIDTH, canvas.height);
+
+
+            // Draw court lines (dashed center line) - now white
+            ctx.beginPath();
+            ctx.setLineDash([10, 10]); // Dashed line
+            ctx.moveTo(canvas.width / 2, COURT_TOP_Y); // Start at top of court
+            ctx.lineTo(canvas.width / 2, COURT_BOTTOM_Y); // End at bottom of court
+            ctx.strokeStyle = '#FFFFFF'; // White
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset line dash
+
+            // Draw white fence around the court
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 3; // Thicker line for fence
+
+            // Top fence
+            ctx.strokeRect(COURT_LEFT_X, COURT_TOP_Y, COURT_RIGHT_X - COURT_LEFT_X, 0); // Line at top edge
+            // Bottom fence
+            ctx.strokeRect(COURT_LEFT_X, COURT_BOTTOM_Y, COURT_RIGHT_X - COURT_LEFT_X, 0); // Line at bottom edge
+            // Left fence
+            ctx.strokeRect(COURT_LEFT_X, COURT_TOP_Y, 0, COURT_BOTTOM_Y - COURT_TOP_Y); // Line at left edge
+            // Right fence
+            ctx.strokeRect(COURT_RIGHT_X, COURT_TOP_Y, 0, COURT_BOTTOM_Y - COURT_TOP_Y); // Line at right edge
+
+
+            // Player 1 paddle (left)
+            ctx.fillStyle = player1Color;
+            ctx.fillRect(COURT_LEFT_X + PADDLE_BUFFER_FROM_GRANDSTAND, paddle1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+            drawPaddleEyes(COURT_LEFT_X + PADDLE_BUFFER_FROM_GRANDSTAND, paddle1Y, PADDLE_WIDTH, PADDLE_HEIGHT, 'right', player1EyeStyle);
+
+            // Player 2 paddle (right)
+            ctx.fillStyle = player2Color;
+            ctx.fillRect(COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH, paddle2Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+            drawPaddleEyes(COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH, paddle2Y, PADDLE_WIDTH, PADDLE_HEIGHT, 'left', player2EyeStyle);
+
+            // Draw ball
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, BALL_RADIUS, 0, Math.PI * 2);
+            ctx.fillStyle = '#f6e05e'; // Yellow ball
+            ctx.fill();
+
+            // Draw all crowd members
+            allCrowdMembers.forEach(member => {
+                drawCrowdMember(member.currentX, member.currentY, member.mood, member.color);
+            });
+        }
+
+        // --- Game Logic (Update) ---
+        function update() {
+            // Only move ball and paddles if isGamePlaying is true
+            if (isGamePlaying) {
+                // Move ball
+                ballX += ballDX;
+                ballY += ballDY;
+
+                // Ball collision with top/bottom walls (adjusted to court boundaries)
+                if (ballY + BALL_RADIUS > COURT_BOTTOM_Y || ballY - BALL_RADIUS < COURT_TOP_Y) {
+                    ballDY *= -1; // Reverse Y direction
+                    playBeep(440, 0.1, 0.5); // Wall bounce sound
+                }
+
+                // --- Player 1 Paddle Movement (Human or AI) ---
+                const p1PaddleX = COURT_LEFT_X + PADDLE_BUFFER_FROM_GRANDSTAND;
+                if (gameMode === 'human-ai-dad' || gameMode === 'human-ai-mum') {
+                    const aiMistakeChance = (gameMode === 'human-ai-dad') ? 0.01 : 0.05; // Dad 1% chance, Mum 5% chance per frame
+                    const paddleCenterY = paddle1Y + PADDLE_HEIGHT / 2;
+                    const targetY = ballY; // Ideal target
+
+                    let moveDirection = 0; // -1 for up, 1 for down, 0 for stay
+
+                    if (targetY < paddleCenterY) {
+                        moveDirection = -1; // Ball is above, move up
+                    } else if (targetY > paddleCenterY) {
+                        moveDirection = 1; // Ball is below, move down
+                    }
+
+                    // Introduce a chance for a mistake
+                    if (Math.random() < aiMistakeChance) {
+                        // Mistake: Move in the opposite direction
+                        moveDirection *= -1;
+                        console.log(`${player1Name} made a mistake!`);
+                    }
+
+                    // Apply movement with boundary checks
+                    if (moveDirection === -1 && paddle1Y > COURT_TOP_Y) {
+                        paddle1Y -= PADDLE_SPEED;
+                    } else if (moveDirection === 1 && paddle1Y + PADDLE_HEIGHT < COURT_BOTTOM_Y) {
+                        paddle1Y += PADDLE_SPEED;
+                    }
+                } else { // Human Player 1 (W/S keys)
+                    if (keysPressed['w'] && paddle1Y > COURT_TOP_Y) {
+                        paddle1Y -= PADDLE_SPEED;
+                    }
+                    if (keysPressed['s'] && paddle1Y + PADDLE_HEIGHT < COURT_BOTTOM_Y) {
+                        paddle1Y += PADDLE_SPEED;
+                    }
+                }
+
+                // Player 1 paddle (left) collision
+                if (ballX - BALL_RADIUS < p1PaddleX + PADDLE_WIDTH && ballX + BALL_RADIUS > p1PaddleX &&
+                    ballY > paddle1Y && ballY < paddle1Y + PADDLE_HEIGHT) {
+                    console.log(`P1 Collision Detected: BallX=${ballX.toFixed(2)}, BallY=${ballY.toFixed(2)}, PaddleX=${p1PaddleX.toFixed(2)}, PaddleY=${paddle1Y.toFixed(2)}`);
+                    // Push ball out to prevent sticking/tunneling
+                    ballX = p1PaddleX + PADDLE_WIDTH + BALL_RADIUS; // Push right, ensuring it's outside the paddle
+
+                    // Calculate hit point relative to paddle center (-1 to 1)
+                    const hitPoint = (ballY - (paddle1Y + PADDLE_HEIGHT / 2)) / (PADDLE_HEIGHT / 2);
+                    // Calculate bounce angle (max 45 degrees from horizontal)
+                    const maxBounceAngle = Math.PI / 4; // 45 degrees
+                    const bounceAngle = hitPoint * maxBounceAngle;
+
+                    // Re-calculate ballDX and ballDY using currentBallSpeed as the magnitude
+                    // Ensure ballDX is always positive after hitting the left paddle
+                    ballDX = currentBallSpeed * Math.cos(bounceAngle);
+                    ballDY = currentBallSpeed * Math.sin(bounceAngle);
+
+                    console.log(`P1 Collision Bounce: New BallDX=${ballDX.toFixed(2)}, New BallDY=${ballDY.toFixed(2)}`);
+
+                    playBeep(880, 0.1, 0.7); // Paddle hit sound
+                    triggerCrowdSmiles('left');
+                }
+
+                // Player 2 paddle (right) - paddle is at COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH
+                const p2PaddleX = COURT_RIGHT_X - PADDLE_BUFFER_FROM_GRANDSTAND - PADDLE_WIDTH;
+                if (ballX + BALL_RADIUS > p2PaddleX && ballX - BALL_RADIUS < p2PaddleX + PADDLE_WIDTH &&
+                    ballY > paddle2Y && ballY < paddle2Y + PADDLE_HEIGHT) {
+                    console.log(`P2 Collision Detected: BallX=${ballX.toFixed(2)}, BallY=${ballY.toFixed(2)}, PaddleX=${p2PaddleX.toFixed(2)}, PaddleY=${paddle2Y.toFixed(2)}`);
+                    // Push ball out to prevent sticking/tunneling
+                    ballX = p2PaddleX - BALL_RADIUS; // Push left
+
+                    // Calculate hit point relative to paddle center (-1 to 1)
+                    const hitPoint = (ballY - (paddle2Y + PADDLE_HEIGHT / 2)) / (PADDLE_HEIGHT / 2);
+                    // Calculate bounce angle (max 45 degrees from horizontal)
+                    const maxBounceAngle = Math.PI / 4; // 45 degrees
+                    const bounceAngle = hitPoint * maxBounceAngle;
+
+                    // Re-calculate ballDX and ballDY using currentBallSpeed as the magnitude
+                    ballDX = currentBallSpeed * Math.cos(bounceAngle);
+                    ballDY = currentBallSpeed * Math.sin(bounceAngle);
+
+                    // Reverse X direction (since it hit the right paddle)
+                    ballDX *= -1;
+                    console.log(`P2 Collision Bounce: New BallDX=${ballDX.toFixed(2)}, New BallDY=${ballDY.toFixed(2)}`);
+
+                    playBeep(880, 0.1, 0.7); // Paddle hit sound
+                    triggerCrowdSmiles('right');
+                }
+
+                // Scoring (adjusted to court boundaries)
+                // Player 2 scores (ball goes past player 1's court boundary)
+                if (ballX - BALL_RADIUS < COURT_LEFT_X) {
+                    player2Score++;
+                    lastScoringPlayer = 'player2'; // Set last scoring player
+                    updateScoreboard();
+                    handlePointEnd(player2Name); // Handle end of point
+                }
+
+                // Player 1 scores (ball goes past player 2's court boundary)
+                if (ballX + BALL_RADIUS > COURT_RIGHT_X) {
+                    player1Score++;
+                    lastScoringPlayer = 'player1'; // Set last scoring player
+                    updateScoreboard();
+                    handlePointEnd(player1Name); // Handle end of point
+                }
+
+                // Player 2: ArrowUp/ArrowDown (always human controlled)
+                if (keysPressed['arrowup'] && paddle2Y > COURT_TOP_Y) {
+                    paddle2Y -= PADDLE_SPEED;
+                }
+                if (keysPressed['arrowdown'] && paddle2Y + PADDLE_HEIGHT < COURT_BOTTOM_Y) {
+                    paddle2Y += PADDLE_SPEED;
+                }
+            }
+
+
+            // Update walking crowd members (this always runs if animation is active)
+            allCrowdMembers.forEach((member, index) => {
+                if (member && member.isWalking) {
+                    let targetX = member.walkTargetX;
+                    let targetY = member.walkTargetY;
+
+                    const dx = targetX - member.currentX;
+                    const dy = targetY - member.currentY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    console.log(`Member ${index} (${member.color}) walking. State: ${member.walkState}. Current: (${member.currentX.toFixed(2)}, ${member.currentY.toFixed(2)}), Target: (${targetX.toFixed(2)}, ${targetY.toFixed(2)}), Distance: ${distance.toFixed(2)}`);
+
+                    // If remaining distance is less than a small epsilon, snap to target
+                    if (distance < 1.0) { // Changed to a fixed small epsilon for robust snapping
+                        member.currentX = targetX; // Snap to target to prevent overshooting
+                        member.currentY = targetY; // Snap to target to prevent overshooting
+                        console.log(`Member ${index} (${member.color}) SNAPPED to target. Final position: (${member.currentX.toFixed(2)}, ${member.currentY.toFixed(2)})`);
+
+                        // Handle migration states
+                        if (member.walkState === 'migratingToOriginalVerticalPath') {
+                            member.walkState = 'migratingAlongTopPath';
+                            // Set the next target: move horizontally along the top path to the winning side's vertical path
+                            // The member.side is already updated to the winning side in migrateCrowd.
+                            const winningSideVerticalPathX = (member.side === 'left') ? GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_PATH_WIDTH / 2 : canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_PATH_WIDTH / 2;
+                            member.walkTargetX = winningSideVerticalPathX;
+                            member.walkTargetY = CROWD_PATH_HEIGHT_BASE / 2; // Center of top horizontal path
+                            console.log(`Member ${index} (${member.color}) reached original vertical path. Setting next target (along top path): (${member.walkTargetX.toFixed(2)}, ${member.walkTargetY.toFixed(2)})`);
+
+                        } else if (member.walkState === 'migratingAlongTopPath') {
+                            member.walkState = 'migratingToNewSeat';
+                            // Set the final target: move vertically down to the new seat
+                            member.walkTargetX = member.initialX; // This is the X of the new seat
+                            member.walkTargetY = member.initialY; // This is the Y of the new seat
+                            console.log(`Member ${index} (${member.color}) reached top path. Setting final target (new seat): (${member.walkTargetX.toFixed(2)}, ${member.initialY.toFixed(2)})`);
+
+                        } else if (member.walkState === 'migratingToNewSeat') {
+                            // This is the *final* step for this member's migration
+                            member.isWalking = false;
+                            member.walkState = 'seated';
+                            member.mood = 'neutral';
+                            if (member.migrationResolve) {
+                                console.log(`Migration resolved for member ${index} (${member.color}).`);
+                                member.migrationResolve();
+                                member.migrationResolve = null;
+                            }
+                        }
+                    } else { // Still walking towards target, take a full step
+                        member.currentX += (dx / distance) * WALK_SPEED;
+                        member.currentY += (dy / distance) * WALK_SPEED;
+                    }
+                }
+            });
+        }
+
+        // Function to trigger temporary crowd smiles on paddle hit
+        function triggerCrowdSmiles(side) {
+            const crowdToAffect = allCrowdMembers.filter(member => member.side === side);
+            const numSmiles = Math.min(3, crowdToAffect.length); // Limit smiles to actual crowd size
+
+            // Filter out members that are already happy from a win/loss, or walking
+            let availableMembers = crowdToAffect.filter(member => member && member.mood === 'neutral' && !member.isWalking);
+
+            // Randomly select members to smile
+            let membersToReset = [];
+            for (let i = 0; i < numSmiles && availableMembers.length > 0; i++) {
+                const randomIndex = Math.floor(Math.random() * availableMembers.length);
+                const member = availableMembers.splice(randomIndex, 1)[0]; // Remove selected member from available
+                member.mood = 'happy';
+                membersToReset.push(member);
+            }
+            draw(); // Redraw immediately to show new smiles
+
+            // Set a single timeout to reset all triggered smiles
+            const timerId = setTimeout(() => {
+                membersToReset.forEach(member => {
+                    // Only reset if it's still happy and not overridden by win/loss
+                    if (member && member.mood === 'happy' && !member.isWalking) { // Added member check here
+                        member.mood = 'neutral';
+                    }
+                });
+                draw(); // Redraw to revert smiles
+                currentSmileTimers = currentSmileTimers.filter(id => id !== timerId); // Remove this timer from the list
+            }, 500); // Smile for 0.5 seconds
+            currentSmileTimers.push(timerId);
+        }
+
+        // --- Game Loop ---
+        function gameLoop() {
+            update();
+            draw();
+            if (isAnimationRunning) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- Scoreboard and Win Conditions ---
+        function updateScoreboard() {
+            document.getElementById('player1Score').textContent = player1Score;
+            document.getElementById('player2Score').textContent = player2Score;
+            document.getElementById('player1Sets').textContent = player1Sets; // Update set score
+            document.getElementById('player2Sets').textContent = player2Sets; // Update set score
+        }
+
+        // Function to handle crowd migration
+        function migrateCrowd(losingSide, winningSide, numToMigrate) {
+            console.log(`Attempting to migrate ${numToMigrate} members from ${losingSide} to ${winningSide}.`);
+            const migrations = [];
+            // Filter to include all members from the losing side, regardless of current state, for migration
+            const membersToConsider = allCrowdMembers.filter(member => member.side === losingSide);
+            console.log(`Found ${membersToConsider.length} members on the losing side (${losingSide}).`);
+
+            // Shuffle available members to pick randomly
+            for (let i = membersToConsider.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [membersToConsider[i], membersToConsider[j]] = [membersToConsider[j], membersToConsider[i]];
+            }
+
+            const membersToMigrate = membersToConsider.slice(0, numToMigrate);
+            console.log("Members selected for migration:", membersToMigrate.map(m => `(Original Side: ${losingSide}, Current Side: ${m.side})`));
+
+            // Helper function to generate non-overlapping seating spots
+            function generateSeatingSpots(side) {
+                const spots = [];
+                const memberDiameterWithPadding = CROWD_MEMBER_RADIUS * 2 + 5; // Diameter + padding
+
+                let minX, maxX;
+                if (side === 'left') {
+                    minX = CROWD_MEMBER_RADIUS; // Start from the edge of the grandstand, considering radius
+                    maxX = GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_MEMBER_RADIUS; // End at the other edge
+                } else { // 'right'
+                    minX = canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_MEMBER_RADIUS;
+                    maxX = canvas.width - CROWD_MEMBER_RADIUS;
+                }
+
+                const minY = CROWD_PATH_HEIGHT_BASE + CROWD_MEMBER_RADIUS;
+                const maxY = canvas.height - CROWD_PATH_HEIGHT_BASE - CROWD_MEMBER_RADIUS;
+
+                const numCols = Math.max(1, Math.floor((maxX - minX) / memberDiameterWithPadding));
+                const numRows = Math.max(1, Math.floor((maxY - minY) / memberDiameterWithPadding));
+
+                const horizontalStep = numCols > 1 ? (maxX - minX) / (numCols - 1) : 0;
+                const verticalStep = numRows > 1 ? (maxY - minY) / (numRows - 1) : 0;
+
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        const x = minX + col * horizontalStep;
+                        const y = minY + row * verticalStep;
+                        spots.push({ x, y });
+                    }
+                }
+                return spots;
+            }
+
+            // Shuffle array helper (re-defined locally to ensure it's available in this scope)
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            const availableWinningSpots = generateSeatingSpots(winningSide);
+            shuffleArray(availableWinningSpots); // Shuffle to get random non-overlapping spots
+
+            membersToMigrate.forEach((member, index) => {
+                // Create a promise for each member's migration
+                const migrationPromise = new Promise(resolve => {
+                    member.migrationResolve = () => {
+                        resolve();
+                    };
+                });
+                migrations.push(migrationPromise);
+
+                // Store the original side for path calculation before updating member.side
+                const memberOriginalSide = member.side;
+
+                // Assign new side
+                member.side = winningSide;
+                console.log(`Member ${index} (${member.color})'s side updated to: ${member.side}`);
+
+                member.isWalking = true;
+                member.mood = 'neutral';
+                member.walkState = 'migratingToOriginalVerticalPath'; // *** CRITICAL FIX: Set initial walkState ***
+
+                // Set the first target for the migration path (to original side's vertical path, at top path level)
+                const originalSideVerticalPathX = (memberOriginalSide === 'left') ? GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_PATH_WIDTH / 2 : canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_PATH_WIDTH / 2;
+                member.walkTargetX = originalSideVerticalPathX;
+                member.walkTargetY = CROWD_PATH_HEIGHT_BASE / 2; // Center of top horizontal path
+                console.log(`Member ${index} (${member.color}) initial walk target: (${member.walkTargetX.toFixed(2)}, ${member.walkTargetY.toFixed(2)}) for state 'migratingToOriginalVerticalPath'`);
+
+                // Calculate new random seat coordinates on the winning side for final destination
+                if (index < availableWinningSpots.length) {
+                    const newSpot = availableWinningSpots[index];
+                    member.initialX = newSpot.x;
+                    member.initialY = newSpot.y;
+                    console.log(`Member ${index} (${member.color}) final new seat (initialX, initialY): (${member.initialX.toFixed(2)}, ${member.initialY.toFixed(2)})`);
+                } else {
+                    // Fallback if somehow not enough spots (shouldn't happen if FIXED_CROWD_PER_SIDE <= total spots)
+                    console.warn(`Not enough unique spots for migrating member ${index}. Falling back to random within area.`);
+                    const winningGrandstandLeftX = (winningSide === 'left') ? CROWD_MEMBER_RADIUS : canvas.width - GRANDSTAND_SEATING_WIDTH_FIXED + CROWD_MEMBER_RADIUS;
+                    const winningGrandstandRightX = (winningSide === 'left') ? GRANDSTAND_SEATING_WIDTH_FIXED - CROWD_MEMBER_RADIUS : canvas.width - CROWD_MEMBER_RADIUS;
+                    const winningGrandstandWidth = winningGrandstandRightX - winningGrandstandLeftX;
+
+                    const crowdDrawAreaTop = CROWD_PATH_HEIGHT_BASE + CROWD_MEMBER_RADIUS;
+                    const crowdDrawAreaBottom = canvas.height - CROWD_PATH_HEIGHT_BASE - CROWD_MEMBER_RADIUS;
+                    const crowdVerticalRange = crowdDrawAreaBottom - crowdDrawAreaTop;
+
+                    member.initialX = winningGrandstandLeftX + Math.random() * winningGrandstandWidth;
+                    member.initialY = crowdDrawAreaTop + Math.random() * crowdVerticalRange;
+                    console.log(`Member ${index} (${member.color}) final new seat (initialX, initialY) - FALLBACK: (${member.initialX.toFixed(2)}, ${member.initialY.toFixed(2)})`);
+                }
+
+            });
+            startHappyMigrationMusic(); // Start happy music when migration begins
+            return Promise.all(migrations).finally(() => {
+                stopHappyMigrationMusic(); // Stop happy music when all migrations are done
+            }); // Return a promise that resolves when all migrations are done
+        }
+
+        // New function to handle end of a single point
+        function handlePointEnd(scoringPlayerName) {
+            isGamePlaying = false; // Pause gameplay immediately
+            showMessageBox(`${scoringPlayerName} scored!`, 3000, () => { // Show message for 3 seconds
+                // After 3 seconds, check for set/game end
+                const setOrGameWon = checkSetEnd();
+
+                // If a set or game did NOT end, then prepare for the next point.
+                // This check must happen AFTER checkSetEnd() has potentially triggered handleSetEnd/declareGameWinner
+                // which themselves set isGamePlaying to false and manage their own countdowns/migrations.
+                // So, if isGamePlaying is still false and no other automatic sequence is running, it's just a point end.
+                if (!setOrGameWon && !isGamePlaying && countdownIntervalId === null && !isMigrationInProgress) {
+                    // Add a very short additional pause before resetting ball and resuming for next point
+                    setTimeout(() => {
+                        resetBall();
+                        isGamePlaying = true; // Resume gameplay
+                    }, 500); // Small 0.5 second delay before next point starts
+                }
+            });
+        }
+
+
+        // New function to handle set end
+        function handleSetEnd(winningPlayerSide) {
+            isGamePlaying = false; // Pause the ball and paddle movement
+            // isAnimationRunning remains true to allow crowd migration and countdown
+            const losingPlayerSide = (winningPlayerSide === 'left') ? 'right' : 'left';
+            const winningPlayerName = (winningPlayerSide === 'left') ? player1Name : player2Name;
+            console.log(`Set ended. Winning side: ${winningPlayerSide}, Losing side: ${losingPlayerSide}`);
+            const losingCrowdCountBeforeMigration = allCrowdMembers.filter(member => member.side === losingPlayerSide).length;
+            console.log(`Losing crowd members before migration: ${losingCrowdCountBeforeMigration}`);
+
+            // Announce set winner BEFORE migration starts
+            showMessageBox(`${winningPlayerName} wins the set!`, 1500, () => {
+                // Apply crowd mood based on set win/loss AFTER announcement
+                allCrowdMembers.forEach(member => {
+                    if (member.side === winningPlayerSide) {
+                        member.mood = 'happy';
+                    } else if (member.side === losingPlayerSide) {
+                        member.mood = 'sad';
+                    }
+                });
+                draw(); // Redraw immediately to show new moods
+
+                // Migrate 2 or 3 random members from losing to winning side
+                const numToMigrate = Math.floor(Math.random() * 2) + 2; // 2 or 3 members
+                isMigrationInProgress = true; // Set flag
+                crowdMigrationPromise = migrateCrowd(losingPlayerSide, winningPlayerSide, numToMigrate);
+
+                console.log("Migration initiated. Waiting for promise to resolve...");
+                // Wait for crowd migration to complete before starting countdown
+                crowdMigrationPromise.then(() => {
+                    console.log("Crowd migration promise resolved. Starting countdown.");
+                    isMigrationInProgress = false; // Clear flag
+                    // Reset crowd moods after a short delay
+                    if (crowdMoodResetTimer) clearTimeout(crowdMoodResetTimer);
+                    crowdMoodResetTimer = setTimeout(() => {
+                        allCrowdMembers.forEach(member => { member.mood = 'neutral'; });
+                        draw();
+                        crowdMoodResetTimer = null;
+                    }, 1000); // Mood lasts for 1 second after migration
+
+                    startCountdown();
+                }).catch(error => {
+                    console.error("Error during crowd migration at set end:", error);
+                    isMigrationInProgress = false; // Clear flag even on error
+                    // Fallback to starting countdown even if migration fails
+                    startCountdown();
+                });
+            });
+        }
+
+        // New function for countdown
+        function startCountdown() {
+            let currentCountdown = 3;
+            showMessageBox(`Next Set in ${currentCountdown}...`);
+
+            if (countdownIntervalId) clearInterval(countdownIntervalId); // Clear any existing interval
+            countdownIntervalId = setInterval(() => {
+                currentCountdown--;
+                if (currentCountdown > 0) {
+                    showMessageBox(`Next Set in ${currentCountdown}...`);
+                } else {
+                    clearInterval(countdownIntervalId);
+                    countdownIntervalId = null;
+                    document.getElementById('messageBox').style.display = 'none';
+                    resetBall();
+                    isGamePlaying = true; // Resume gameplay after countdown
+                }
+            }, 1000);
+        }
+
+        // Modified checkWin to become checkSetEnd and then checkGameWin
+        function checkSetEnd() { // This function now checks for set wins
+            let setWinnerSide = null;
+            if (player1Score >= WINNING_SCORE) {
+                setWinnerSide = 'left';
+                player1Sets++;
+            } else if (player2Score >= WINNING_SCORE) {
+                setWinnerSide = 'right';
+                player2Sets++;
+            }
+
+            if (setWinnerSide) {
+                updateScoreboard(); // Update scores and sets display
+
+                // Check for overall game win
+                if (player1Sets >= WINNING_SETS) {
+                    declareGameWinner(player1Name, 'left');
+                } else if (player2Sets >= WINNING_SETS) {
+                    declareGameWinner(player2Name, 'right');
+                } else {
+                    // No overall winner yet, handle end of set
+                    handleSetEnd(setWinnerSide);
+                    player1Score = 0; // Reset scores for new set
+                    player2Score = 0;
+                }
+                return true; // A set or game was won
+            }
+            return false; // No set or game was won
+        }
+
+        // New function for declaring overall game winner
+        function declareGameWinner(winnerName, winningPlayerSide) {
+            isGamePlaying = false; // Pause ball/paddle movement
+            // isAnimationRunning remains true to allow crowd migration
+            const losingPlayerSide = (winningPlayerSide === 'left') ? 'right' : 'left';
+            console.log(`Game ended. Winner: ${winnerName}, Winning side: ${winningPlayerSide}, Losing side: ${losingPlayerSide}`);
+
+            // Apply crowd mood for overall win/loss immediately
+            allCrowdMembers.forEach(member => {
+                if (member.side === winningPlayerSide) {
+                    member.mood = 'happy';
+                } else if (member.side === losingPlayerSide) {
+                    member.mood = 'sad';
+                }
+            });
+            draw(); // Redraw immediately to show new moods
+
+            // Start crowd migration (this will run in the background)
+            const losingCrowdCount = allCrowdMembers.filter(member => member.side === losingPlayerSide).length;
+            isMigrationInProgress = true; // Set flag
+            crowdMigrationPromise = migrateCrowd(losingPlayerSide, winningPlayerSide, losingCrowdCount);
+
+            // --- Start Celebration Immediately ---
+            // 1. Flash Scoreboard Lights
+            const winningScoreItem = (winningPlayerSide === 'left') ? document.getElementById('player1ScoreItem') : document.getElementById('player2ScoreItem');
+            winningScoreItem.classList.add('flash-border');
+
+            // 2. Play Winner Music
+            playWinnerMusic(); // New function to encapsulate music logic
+
+            // 3. Show Winner Message
+            showMessageBox(`${winnerName} wins the game!`, CELEBRATION_DURATION, () => {
+                playClapSound(); // Play the fun "clapping" sound for duration of message
+            });
+
+            // Set a timeout to stop flashing lights and music, and reset crowd moods
+            // This timeout should be independent of migration completion.
+            setTimeout(() => {
+                // Stop flashing lights
+                winningScoreItem.classList.remove('flash-border');
+                // Stop winner music
+                stopWinnerMusic(); // New function to encapsulate stopping music
+
+                // Reset crowd moods to neutral
+                allCrowdMembers.forEach(member => { member.mood = 'neutral'; });
+                draw(); // Redraw to revert moods
+
+                // Now that celebration is mostly over, stop the animation loop for a full freeze
+                isAnimationRunning = false;
+                cancelAnimationFrame(animationFrameId);
+
+                // Reset walking state for all members (they should all be seated after migration completes)
+                // This is still needed because migration happens in background.
+                allCrowdMembers.forEach(member => {
+                    if (member) {
+                        member.isWalking = false;
+                        member.walkState = 'seated';
+                        member.currentX = member.initialX; // Snap back to seat
+                        member.currentY = member.initialY;
+                    }
+                });
+
+                if (countdownIntervalId) {
+                    clearInterval(countdownIntervalId);
+                    countdownIntervalId = null;
+                    document.getElementById('messageBox').style.display = 'none';
+                }
+                if (crowdMoodResetTimer) clearTimeout(crowdMoodResetTimer); // Clear any pending mood reset
+
+                // Re-enable start button after a short delay
+                document.getElementById('startButton').disabled = true;
+                setTimeout(() => {
+                    document.getElementById('startButton').textContent = 'Play Again';
+                    document.getElementById('startButton').disabled = false;
+                }, 2000); // 2-second delay after celebration ends
+            }, CELEBRATION_DURATION); // Celebration duration (5 seconds)
+
+            // Ensure migration flag is cleared when its promise resolves, regardless of celebration
+            crowdMigrationPromise.finally(() => {
+                console.log("Crowd migration promise resolved for game end.");
+                isMigrationInProgress = false; // Clear flag
+                stopHappyMigrationMusic(); // Ensure migration music stops
+            });
+        }
+
+        // --- Message Box Function ---
+        function showMessageBox(message, duration, callback = null) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            if (duration) { // Only set timeout if duration is provided (for temporary messages)
+                setTimeout(() => {
+                    messageBox.style.display = 'none';
+                    if (callback) callback();
+                }, duration);
+            } else { // If no duration, keep it displayed until explicitly hidden
+                if (callback) callback();
+            }
+        }
+
+
+        // Function to toggle game pause/resume (triggered by startButton)
+        function toggleGamePause() {
+            if (isGamePlaying) { // Game is currently playing, so pause it
+                isGamePlaying = false;
+                isAnimationRunning = false; // Stop the animation loop entirely
+                cancelAnimationFrame(animationFrameId);
+                document.getElementById('startButton').textContent = 'Resume Game';
+                showMessageBox("Game Paused", 0); // Display message indefinitely
+                if (countdownIntervalId) { // Clear any active countdown if paused manually
+                    clearInterval(countdownIntervalId);
+                    countdownIntervalId = null;
+                }
+                stopHappyMigrationMusic(); // Stop any music if paused manually
+                stopWinnerMusic(); // Stop winner music if paused manually
+            } else { // Game is currently paused (either manually or automatically)
+                // Check if an automatic transition (migration or countdown) is in progress
+                if (isMigrationInProgress) {
+                    showMessageBox("Cannot resume during crowd migration!", 2000);
+                    return;
+                }
+                if (countdownIntervalId !== null) { // Countdown is active
+                    showMessageBox("Cannot resume during countdown!", 2000);
+                    return;
+                }
+
+                // If no automatic transition is in progress, it's a manual resume
+                isGamePlaying = true;
+                isAnimationRunning = true; // Restart animation loop
+                gameLoop(); // Start the loop
+                document.getElementById('messageBox').style.display = 'none'; // Hide message box
+                document.getElementById('startButton').textContent = 'Pause Game';
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('startButton').addEventListener('click', () => {
+            initToneJs(); // Initialize Tone.js context on first user interaction
+            toggleGamePause();
+        });
+
+        document.getElementById('resetButton').addEventListener('click', () => {
+            // Stop animation loop for a clean reset
+            isAnimationRunning = false;
+            cancelAnimationFrame(animationFrameId);
+
+            if (countdownIntervalId) { clearInterval(countdownIntervalId); countdownIntervalId = null; }
+            if (crowdMoodResetTimer) clearTimeout(crowdMoodResetTimer);
+            stopHappyMigrationMusic();
+            stopWinnerMusic(); // Stop winner music on reset
+
+            initGame(); // This will reset all scores, sets, and crowd positions
+            isGamePlaying = false; // Game starts paused after reset
+            isAnimationRunning = true; // Animation loop should be active to draw initial state
+            isMigrationInProgress = false; // Ensure this is false on reset
+
+            gameLoop(); // Restart the animation loop
+            document.getElementById('startButton').textContent = 'Start Game';
+            document.getElementById('startButton').disabled = false;
+        });
+
+        document.getElementById('player1Input').addEventListener('input', (e) => {
+            // Only allow manual input if not in AI mode
+            if (gameMode === 'human-human') {
+                player1Name = e.target.value || 'Player 1';
+                document.getElementById('player1NameDisplay').textContent = player1Name;
+                draw(); // Redraw to update name immediately
+            }
+        });
+
+        document.getElementById('player2Input').addEventListener('input', (e) => {
+            player2Name = e.target.value || 'Player 2';
+            document.getElementById('player2NameDisplay').textContent = player2Name;
+            draw(); // Redraw to update name immediately
+        });
+
+        document.getElementById('player1ShirtColor').addEventListener('change', (e) => {
+            // Only allow manual color change if not in AI mode
+            if (gameMode === 'human-human') {
+                player1Color = e.target.value;
+                document.getElementById('player1ScoreItem').style.borderColor = player1Color;
+                draw(); // Redraw to update paddle color immediately
+            }
+        });
+
+        document.getElementById('player2ShirtColor').addEventListener('change', (e) => {
+            player2Color = e.target.value;
+            document.getElementById('player2ScoreItem').style.borderColor = player2Color;
+            draw(); // Redraw to update paddle color immediately
+        });
+
+        document.getElementById('player1EyeStyle').addEventListener('change', (e) => {
+            // Only allow manual eye style change if not in AI mode
+            if (gameMode === 'human-human') {
+                player1EyeStyle = e.target.value;
+                draw(); // Redraw main canvas to update paddle eyes
+            }
+        });
+
+        document.getElementById('player2EyeStyle').addEventListener('change', (e) => {
+            player2EyeStyle = e.target.value;
+            draw(); // Redraw main canvas to update paddle eyes
+        });
+
+        // Player Mode Buttons
+        const modeHumanHumanBtn = document.getElementById('modeHumanHuman');
+        const modeHumanAIDadBtn = document.getElementById('modeHumanAIDad');
+        const modeHumanAIMumBtn = document.getElementById('modeHumanAIMum');
+
+        function setGameMode(mode, activeBtn) {
+            gameMode = mode;
+            // Update active class for buttons
+            modeHumanHumanBtn.classList.remove('active');
+            modeHumanAIDadBtn.classList.remove('active');
+            modeHumanAIMumBtn.classList.remove('active');
+            activeBtn.classList.add('active');
+            initGame(); // Re-initialize game to apply new mode settings
+            draw();
+        }
+
+        modeHumanHumanBtn.addEventListener('click', () => setGameMode('human-human', modeHumanHumanBtn));
+        modeHumanAIDadBtn.addEventListener('click', () => setGameMode('human-ai-dad', modeHumanAIDadBtn));
+        modeHumanAIMumBtn.addEventListener('click', () => setGameMode('human-ai-mum', modeHumanAIMumBtn));
+
+
+        // Ball Speed Buttons
+        const speedSlowBtn = document.getElementById('speedSlow');
+        const speedMediumBtn = document.getElementById('speedMedium');
+        const speedFastBtn = document.getElementById('speedFast');
+
+        function setBallSpeed(speedValue, activeBtn) {
+            currentBallSpeed = speedValue;
+            // Update active class for buttons
+            speedSlowBtn.classList.remove('active');
+            speedMediumBtn.classList.remove('active');
+            speedFastBtn.classList.remove('active');
+            activeBtn.classList.add('active');
+            // If the game is currently playing, reset ball to apply new speed immediately
+            if (isGamePlaying) {
+                resetBall();
+            }
+        }
+
+        speedSlowBtn.addEventListener('click', () => setBallSpeed(2, speedSlowBtn)); // Slower speed value
+        speedMediumBtn.addEventListener('click', () => setBallSpeed(4, speedMediumBtn)); // Medium speed value
+        speedFastBtn.addEventListener('click', () => setBallSpeed(7, speedFastBtn)); // Faster speed value
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            keysPressed[e.key.toLowerCase()] = true;
+            if (e.key === ' ') { // Spacebar for start/pause
+                e.preventDefault(); // Prevent default spacebar action (e.g., scrolling)
+                toggleGamePause();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.key.toLowerCase()] = false;
+        });
+
+        // Handle window resize to adjust canvas dimensions
+        window.addEventListener('resize', () => {
+            initGame(); // Re-initialize game to adjust canvas size and element positions and regenerate crowd colors
+            draw(); // Redraw immediately after resize
+        });
+
+        // Initial setup when the page loads
+        window.onload = function() {
+            initGame();
+            setBallSpeed(4, speedMediumBtn); // Set initial speed to medium and activate button
+            isAnimationRunning = true; // Ensure animation loop starts on load to draw initial state
+            gameLoop(); // Start the animation loop
+        };
+    </script>
+</body>
+</html>
