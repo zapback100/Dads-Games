@@ -2,10 +2,590 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Running - Coming Soon</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running Race - Dad's Winter Sports Competition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        body {
+            background: #228B22; /* Dark green from menu theme */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            font-family: 'Arial Black', sans-serif;
+            color: #ffffff;
+            overflow-x: hidden;
+            padding: 10px;
+        }
+        .title {
+            text-shadow: 0 0 10px #ffd700, 0 0 20px #ff0000, 0 0 30px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+            margin: 50px 0 10px;
+            font-size: 2.25rem;
+            line-height: 2.5rem;
+            font-weight: 800;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #ffd700, 0 0 20px #ff0000, 0 0 30px #00ff00; }
+            to { text-shadow: 0 0 20px #ffd700, 0 0 30px #ff0000, 0 0 40px #00ff00; }
+        }
+        .back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #dc2626;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+            z-index: 10;
+        }
+        .back-button:hover {
+            background: #b91c1c;
+        }
+        .controls {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px;
+            border-radius: 6px;
+            border: 2px solid #ffd700;
+            margin-top: 10px;
+            text-align: center;
+            width: 100%;
+            max-width: 350px;
+            box-sizing: border-box;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+        .controls label {
+            font-size: 1.1rem;
+            text-shadow: 0 0 6px #000000;
+            color: #ffffff;
+        }
+        select, button {
+            padding: 6px;
+            margin: 3px;
+            border-radius: 4px;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 0.9rem;
+            text-shadow: 0 0 4px #000000;
+        }
+        select {
+            background: #1a202c;
+            color: #ffffff;
+            border: 2px solid #ffd700;
+        }
+        select option {
+            background: #1a202c;
+            color: #ffffff;
+        }
+        button {
+            background: #dc2626;
+            color: #ffffff;
+            border: 2px solid #ffd700;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #b91c1c;
+        }
+        #results {
+            margin-top: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px;
+            border-radius: 6px;
+            border: 2px solid #ffd700;
+            display: none;
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-size: 1.125rem;
+            line-height: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        #results p {
+            margin: 1px 0;
+        }
+        #clock {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 2px solid #ffd700;
+            font-size: 1.2rem;
+            text-shadow: 0 0 6px #000000;
+            z-index: 10;
+        }
+        canvas {
+            border: 6px solid #a9a9a9; /* Gray path */
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            max-width: 100%;
+        }
+        @media (max-width: 600px) {
+            .title { font-size: 1.8rem; }
+            .controls label { font-size: 0.9rem; }
+            select, button { font-size: 0.8rem; padding: 4px; }
+            #clock { font-size: 1rem; }
+            .back-button { font-size: 0.8rem; padding: 4px 8px; }
+            #results { font-size: 0.7rem; }
+        }
+    </style>
 </head>
 <body>
-    <h1>Running Competition - Coming Soon!</h1>
-    <a href="./index.html">Back to Home</a>
+    <a href="./index.html" class="back-button">Back to Home</a>
+    <div id="clock">Time: 0.00s</div>
+    <h1 class="title">Running Race</h1>
+    <div id="canvas-container"></div>
+    <div id="results"></div>
+    <div class="controls">
+        <label for="players">Players:</label>
+        <select id="players">
+            <option value="1">1 Player</option>
+            <option value="2">2 Players</option>
+        </select>
+        <label for="runners">Runners:</label>
+        <select id="runners">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+        </select>
+        <button onclick="startRace()">Start Race</button>
+        <button onclick="resetRace()">Reset</button>
+    </div>
+    <script>
+        let runners = [];
+        let lanes = 8;
+        let raceLength = 400;
+        let gameState = 'setup';
+        let lastKeyTime1 = 0, lastKeyTime2 = 0;
+        let keyInterval = 200; // Minimum time (ms) between key presses
+        let results = [];
+        let startTime = 0;
+        let startPhase = 'ready'; // 'ready', 'set', 'go', 'racing'
+        let startTimer = 0;
+        let gunFired = false;
+
+        let radiusPixel = 150;
+        let straightPixel = 400;
+        let trackWidth = 50;
+        let laneWidth = trackWidth / lanes;
+        let leftCenterX, rightCenterX, centerY, topY, bottomY;
+
+        function setup() {
+            let canvasWidth = min(windowWidth - 40, 800);
+            let canvasHeight = min(windowHeight * 0.6, 600);
+            let canvas = createCanvas(canvasWidth, canvasHeight);
+            canvas.parent('canvas-container');
+            textAlign(CENTER, CENTER);
+            textSize(14);
+            centerY = height / 2;
+            leftCenterX = (width - straightPixel) / 2;
+            rightCenterX = leftCenterX + straightPixel;
+            topY = centerY - radiusPixel;
+            bottomY = centerY + radiusPixel;
+            resetRace();
+        }
+
+        function resetRace() {
+            runners = [];
+            results = [];
+            gameState = 'setup';
+            startTime = 0;
+            startPhase = 'ready';
+            gunFired = false;
+            let numRunners = parseInt(document.getElementById('runners').value);
+            let numPlayers = parseInt(document.getElementById('players').value);
+            let r_lane0 = radiusPixel;
+            let path_lane0 = 2 * straightPixel + 2 * PI * r_lane0;
+            for (let i = 0; i < lanes; i++) {
+                if (i < numRunners) {
+                    let isPlayer = (i === 0 && numPlayers >= 1) || (i === 1 && numPlayers === 2);
+                    let r_lane = radiusPixel + i * laneWidth;
+                    let path_length = 2 * straightPixel + 2 * PI * r_lane;
+                    let stagger = path_length - path_lane0;
+                    runners.push({
+                        lane: i,
+                        position: stagger,
+                        speed: isPlayer ? 0 : random(0.5, 1.5), // AI speed range
+                        lastKey: isPlayer ? (i === 0 ? 'q' : 'o') : '',
+                        isPlayer: isPlayer,
+                        finished: false,
+                        finishTime: 0,
+                        lastInputTime: 0,
+                        armAngle: 0,
+                        legAngle: 0,
+                        r_lane: r_lane,
+                        path_length: path_length
+                    });
+                } else {
+                    runners.push(null); // Empty lane
+                }
+            }
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('clock').innerHTML = 'Time: 0.00s';
+        }
+
+        function startRace() {
+            if (gameState === 'setup') {
+                resetRace();
+                gameState = 'starting';
+                startPhase = 'ready';
+                startTimer = millis() + 1000; // 1 second for 'ready'
+            }
+        }
+
+        function getPosition(pos, runner) {
+            let r_lane = runner.r_lane;
+            let section1 = straightPixel;
+            let section2 = section1 + PI * r_lane;
+            let section3 = section2 + straightPixel;
+            let section4 = section3 + PI * r_lane;
+            let local, theta, x, y, direction;
+            if (pos < section1) {
+                local = pos;
+                x = leftCenterX + local;
+                y = centerY + r_lane;
+                direction = 0;
+            } else if (pos < section2) {
+                local = (pos - section1) / (section2 - section1);
+                theta = PI / 2 - local * PI;
+                x = rightCenterX + cos(theta) * r_lane;
+                y = centerY + sin(theta) * r_lane;
+                direction = theta - PI / 2;
+            } else if (pos < section3) {
+                local = (pos - section2) / (section3 - section2);
+                x = rightCenterX - local * straightPixel;
+                y = centerY - r_lane;
+                direction = PI;
+            } else {
+                local = (pos - section3) / (section4 - section3);
+                theta = -PI / 2 + local * PI;
+                x = leftCenterX - cos(theta) * r_lane;
+                y = centerY + sin(theta) * r_lane;
+                direction = atan2(cos(theta), sin(theta));
+            }
+            return {x, y, direction};
+        }
+
+        function draw() {
+            background(0, 128, 0); // Green grass
+            // Draw track
+            fill(178, 34, 34); // Brick red track
+            noStroke();
+            beginShape();
+            let r_outer = radiusPixel + (lanes - 0.5) * laneWidth;
+            let bottomY_outer = centerY + r_outer;
+            let topY_outer = centerY - r_outer;
+            vertex(leftCenterX, bottomY_outer);
+            vertex(rightCenterX, bottomY_outer);
+            for (let a = PI / 2; a >= -PI / 2; a -= 0.01) {
+                let px = rightCenterX + cos(a) * r_outer;
+                let py = centerY + sin(a) * r_outer;
+                vertex(px, py);
+            }
+            vertex(rightCenterX, topY_outer);
+            vertex(leftCenterX, topY_outer);
+            for (let a = -PI / 2; a >= -3 * PI / 2; a -= 0.01) {
+                let px = leftCenterX + cos(a) * r_outer;
+                let py = centerY + sin(a) * r_outer;
+                vertex(px, py);
+            }
+            endShape(CLOSE);
+
+            // Draw inner grass
+            fill(0, 160, 0); // Lighter green
+            beginShape();
+            let r_inner = radiusPixel - 0.5 * laneWidth;
+            let bottomY_inner = centerY + r_inner;
+            let topY_inner = centerY - r_inner;
+            vertex(leftCenterX, bottomY_inner);
+            vertex(rightCenterX, bottomY_inner);
+            for (let a = PI / 2; a >= -PI / 2; a -= 0.01) {
+                let px = rightCenterX + cos(a) * r_inner;
+                let py = centerY + sin(a) * r_inner;
+                vertex(px, py);
+            }
+            vertex(rightCenterX, topY_inner);
+            vertex(leftCenterX, topY_inner);
+            for (let a = -PI / 2; a >= -3 * PI / 2; a -= 0.01) {
+                let px = leftCenterX + cos(a) * r_inner;
+                let py = centerY + sin(a) * r_inner;
+                vertex(px, py);
+            }
+            endShape(CLOSE);
+
+            // Draw lane lines
+            stroke(255);
+            strokeWeight(1);
+            for (let l = 1; l < lanes; l++) {
+                let r_l = radiusPixel + l * laneWidth;
+                let y_bottom_l = centerY + r_l;
+                let y_top_l = centerY - r_l;
+                line(leftCenterX, y_bottom_l, rightCenterX, y_bottom_l);
+                line(leftCenterX, y_top_l, rightCenterX, y_top_l);
+                arc(rightCenterX, centerY, 2 * r_l, 2 * r_l, PI / 2, -PI / 2);
+                arc(leftCenterX, centerY, 2 * r_l, 2 * r_l, -PI / 2, PI / 2);
+            }
+
+            // Draw crowd
+            let crowdY = -40;
+            fill(255, 255, 0); // Yellow crowd
+            for (let i = 0; i < width; i += 20) {
+                let armAngle = gameState === 'racing' ? sin(frameCount * 0.1 + i) * 20 : 0;
+                ellipse(i + 10, crowdY + 10, 10, 10); // Head
+                rect(i + 8, crowdY + 15, 4, 10); // Body
+                push();
+                translate(i + 8, crowdY + 15);
+                rotate(radians(armAngle));
+                rect(0, 0, 2, 8); // Left arm
+                pop();
+                push();
+                translate(i + 12, crowdY + 15);
+                rotate(radians(-armAngle));
+                rect(0, 0, 2, 8); // Right arm
+                pop();
+            }
+
+            // Handle start sequence
+            let currentTime = millis();
+            if (gameState === 'starting') {
+                if (startPhase === 'ready' && currentTime > startTimer) {
+                    startPhase = 'set';
+                    startTimer = currentTime + 1000; // 1 second for 'set'
+                } else if (startPhase === 'set' && currentTime > startTimer) {
+                    startPhase = 'go';
+                    startTime = currentTime;
+                    gunFired = true;
+                    startTimer = currentTime + 500; // 0.5 second for gun effect
+                    for (let runner of runners) {
+                        if (runner) {
+                            runner.speed += 1.5; // Start boost
+                        }
+                    }
+                } else if (startPhase === 'go' && currentTime > startTimer) {
+                    gameState = 'racing';
+                    gunFired = false;
+                }
+                // Display start phase
+                fill(255);
+                textSize(32);
+                text(startPhase.toUpperCase(), width / 2, height / 2);
+                if (gunFired) {
+                    fill(255, 0, 0);
+                    text('BANG!', width / 2, height / 2 + 40);
+                }
+            }
+
+            // Update and draw runners (stickmen)
+            allFinished = true;
+            for (let i = 0; i < lanes; i++) {
+                if (runners[i]) {
+                    let runner = runners[i];
+                    if (!runner.finished && gameState === 'racing') {
+                        let speed_pixel = runner.speed * (runner.path_length / 400);
+                        runner.position += speed_pixel;
+                        runner.speed *= 0.95; // Decelerate
+                        if (runner.isPlayer) {
+                            runner.position += runner.speed;
+                            runner.speed *= 0.95; // Decelerate
+                        } else {
+                            runner.position += runner.speed * 0.1; // AI speed
+                            runner.armAngle = sin(frameCount * 0.3) * 90; // AI arm swing
+                            runner.legAngle = sin(frameCount * 0.3) * 45; // AI leg kick
+                        }
+                        if (runner.position >= runner.path_length) {
+                            runner.position = runner.path_length;
+                            if (!runner.finished) {
+                                runner.finished = true;
+                                runner.finishTime = (millis() - startTime) / 1000;
+                                results.push({ lane: runner.lane, time: runner.finishTime });
+                            }
+                        }
+                        if (!runner.finished) allFinished = false;
+                    }
+                    // Get position
+                    let {x, y, direction} = getPosition(runner.position, runner);
+                    // Draw stickman runner
+                    push();
+                    translate(x, y);
+                    rotate(direction);
+                    stroke(runner.isPlayer ? (runner.lane === 0 ? '#ff0000' : '#00ff00') : '#ffffff');
+                    strokeWeight(2);
+                    line(-5, 0, 5, 0); // Body
+                    ellipse(5, 0, 6, 6); // Head
+                    // Animate arms and legs only on recent player input
+                    let animate = runner.isPlayer ? (currentTime - runner.lastInputTime < keyInterval * 2) : true;
+                    if (animate) {
+                        runner.armAngle = sin(currentTime * 0.01) * 60; // Swing ±60 degrees
+                        runner.legAngle = -runner.armAngle; // Legs opposite
+                    } else {
+                        runner.armAngle = 0;
+                        runner.legAngle = 0;
+                    }
+                    // Arms
+                    line(0, 0, 8 * cos(runner.armAngle * PI / 180), 8 * sin(runner.armAngle * PI / 180)); // Left arm
+                    line(0, 0, 8 * cos((runner.armAngle + 180) * PI / 180), 8 * sin((runner.armAngle + 180) * PI / 180)); // Right arm
+                    // Legs
+                    line(-5, 0, -5 + 8 * cos(runner.legAngle * PI / 180), 8 * sin(runner.legAngle * PI / 180)); // Left leg
+                    line(-5, 0, -5 + 8 * cos((runner.legAngle + 180) * PI / 180), 8 * sin((runner.legAngle + 180) * PI / 180)); // Right leg
+                    pop();
+                    noStroke();
+                    fill(255);
+                    textSize(10);
+                    text(`Lane ${i + 1}`, x, y - 15);
+                }
+            }
+
+            // Update clock
+            if (gameState === 'racing') {
+                let time = (millis() - startTime) / 1000;
+                document.getElementById('clock').innerHTML = `Time: ${time.toFixed(2)}s`;
+            }
+
+            // Check if race is over
+            if (allFinished && gameState === 'racing') {
+                gameState = 'finished';
+                displayResults();
+            }
+        }
+
+        function getPosition(pos, runner) {
+            let r_lane = runner.r_lane;
+            let section1 = straightPixel;
+            let section2 = section1 + PI * r_lane;
+            let section3 = section2 + straightPixel;
+            let section4 = section3 + PI * r_lane;
+            let local, theta, x, y, direction;
+            if (pos < section1) {
+                local = pos;
+                x = leftCenterX + local;
+                y = centerY + r_lane;
+                direction = 0;
+            }else if (pos < section2) {
+                local = (pos - section1) / (section2 - section1);
+                theta = PI / 2 - local * PI;
+                x = rightCenterX + cos(theta) * r_lane;
+                y = centerY + sin(theta) * r_lane;
+                direction = theta - PI / 2;
+            } else if (pos < section3) {
+                local = (pos - section2) / (section3 - section2);
+                x = rightCenterX - local * straightPixel;
+                y = centerY - r_lane;
+                direction = PI;
+            } else {
+                local = (pos - section3) / (section4 - section3);
+                theta = -PI / 2 + local * PI;
+                x = leftCenterX - cos(theta) * r_lane;
+                y = centerY + sin(theta) * r_lane;
+                direction = atan2(cos(theta), sin(theta));
+            }
+            return {x, y, direction};
+        }
+
+        function keyPressed() {
+            if (gameState !== 'racing') return;
+            let currentTime = millis();
+            for (let runner of runners) {
+                if (runner && runner.isPlayer) {
+                    if (runner.lane === 0 && (key === 'q' || key === 'Q' || key === 'w' || key === 'W')) {
+                        if ((runner.lastKey === 'q' && key.toLowerCase() === 'w') || (runner.lastKey === 'w' && key.toLowerCase() === 'q')) {
+                            if (currentTime - lastKeyTime1 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime1 = currentTime;
+                                runner.lastKey = key.toLowerCase();
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        }
+                    } else if (runner.lane === 1 && (key === 'o' || key === 'O' || key === 'p' || key === 'P')) {
+                        if ((runner.lastKey === 'o' && key.toLowerCase() === 'p') || (runner.lastKey === 'p' && key.toLowerCase() === 'o')) {
+                            if (currentTime - lastKeyTime2 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime2 = currentTime;
+                                runner.lastKey = key.toLowerCase();
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function touchStarted() {
+            if (gameState !== 'racing') return;
+            let currentTime = millis();
+            let numPlayers = parseInt(document.getElementById('players').value);
+            for (let runner of runners) {
+                if (runner && runner.isPlayer) {
+                    if (runner.lane === 0 && numPlayers >= 1) {
+                        if (mouseX < width / 2) {
+                            if (runner.lastKey === 'w' && currentTime - lastKeyTime1 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime1 = currentTime;
+                                runner.lastKey = 'q';
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        } else {
+                            if (runner.lastKey === 'q' && currentTime - lastKeyTime1 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime1 = currentTime;
+                                runner.lastKey = 'w';
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        }
+                    } else if (runner.lane === 1 && numPlayers === 2) {
+                        if (mouseX < width / 2) {
+                            if (runner.lastKey === 'p' && currentTime - lastKeyTime2 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime2 = currentTime;
+                                runner.lastKey = 'o';
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        } else {
+                            if (runner.lastKey === 'o' && currentTime - lastKeyTime2 > keyInterval) {
+                                runner.speed += 0.3;
+                                lastKeyTime2 = currentTime;
+                                runner.lastKey = 'p';
+                                runner.lastInputTime = currentTime; // Trigger animation
+                            }
+                        }
+                    }
+                }
+            }
+            return false; // Prevent default touch behavior
+        }
+
+        function displayResults() {
+            results.sort((a, b) => a.time - b.time);
+            let resultText = '<h2 class="text-lg font-bold mb-1">Top 3 Results</h2>';
+            results.slice(0, 3).forEach((result, index) => {
+                let name = result.lane === 0 ? 'Player 1' : result.lane === 1 ? 'Player 2' : `AI Runner ${result.lane + 1}`;
+                resultText += `<p>${index + 1}. ${name}: ${result.time.toFixed(2)}s</p>`;
+            });
+            document.getElementById('results').innerHTML = resultText;
+            document.getElementById('results').style.display = 'block';
+        }
+
+        function windowResized() {
+            let canvasWidth = min(windowWidth - 40, 800);
+            let canvasHeight = min(windowHeight * 0.6, 600);
+            resizeCanvas(canvasWidth, canvasHeight);
+            centerY = height / 2;
+            leftCenterX = (width - straightPixel) / 2;
+            rightCenterX = leftCenterX + straightPixel;
+            topY = centerY - radiusPixel;
+            bottomY = centerY + radiusPixel;
+        }
+    </script>
 </body>
 </html>
