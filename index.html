@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dad's Winter Sports Competition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-image: url('https://images.unsplash.com/photo-1507521621176-8b13f3a90f0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-color: #2f855a; /* Fallback green color */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .tent {
+            perspective: 1000px;
+            transition: transform 0.3s ease;
+        }
+        .tent:hover {
+            transform: translateY(-10px);
+        }
+        .tent-sign {
+            transform: rotateY(-10deg);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto text-center py-10">
+        <h1 class="text-5xl font-bold mb-12 text-shadow-lg">Dad's Winter Sports Competition</h1>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <a href="./pong.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign">
+                    <div class="bg-red-600 text-white font-bold py-2 px-4 rounded mb-2">Super Pong</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </a>
+            <a href="./swimming.html" class="tent">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign">
+                    <div class="bg-blue-600 text-white font-bold py-2 px-4 rounded mb-2">Swimming</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </a>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="tent cursor-not-allowed">
+                <div class="bg-gray-800 rounded-lg p-4 tent-sign opacity-50">
+                    <div class="bg-gray-600 text-white font-bold py-2 px-4 rounded mb-2">Coming Soon</div>
+                    <svg class="w-24 h-24 mx-auto" viewBox="0 0 100 100">
+                        <polygon points="50,10 90,90 10,90" fill="#4a5568"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
