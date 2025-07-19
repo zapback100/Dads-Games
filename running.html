@@ -3,270 +3,1363 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Running Track Game - Dad's Winter Sport Competition</title>
+    <title>Stickman Animation Preview</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js CDN for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; }
-        #gameCanvas { display: block; margin: 0 auto; max-width: 100%; height: auto; }
-        a { position: absolute; top: 10px; left: 10px; color: white; background: blue; padding: 10px; text-decoration: none; }
+        /* Custom styles for the canvas to ensure it scales responsively */
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto; /* Maintain aspect ratio */
+            max-width: 800px; /* Optional: limit max width for very large screens */
+            margin: 0 auto; /* Center the canvas */
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 0.5rem; /* Rounded corners for the canvas */
+        }
+        /* Ensure the body uses Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Styles for the new container wrapping canvas and controls */
+        .canvas-container {
+            position: relative; /* Essential for absolute positioning of controls */
+            width: 100%;
+            max-width: 800px; /* Match canvas max-width */
+            margin: 0 auto; /* Center the container */
+        }
+        /* Styles for the D-pad container */
+        .dpad-controls {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            width: 100px; /* Adjusted size for better usability */
+            height: 100px; /* Adjusted size for better usability */
+            background-color: #333; /* Dark background for the D-pad */
+            border-radius: 50%; /* Circular shape */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            border: 2px solid #222;
+            opacity: 0.5; /* Made transparent */
+        }
+
+        .dpad-button {
+            position: absolute;
+            width: 35px; /* Adjusted size for better usability */
+            height: 35px; /* Adjusted size for better usability */
+            background-color: #555; /* Lighter background for buttons */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 1px solid #444;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        }
+
+        .dpad-button:active {
+            background-color: #777;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Positioning for individual D-pad buttons */
+        #upBtn { top: 0; transform: translateY(-50%); }
+        #downBtn { bottom: 0; transform: translateY(50%); }
+        #leftBtn { left: 0; transform: translateX(-50%); }
+        #rightBtn { right: 0; transform: translateX(50%); }
+
+        /* Center dot */
+        .dpad-center {
+            width: 25px; /* Adjusted size for better usability */
+            height: 25px; /* Adjusted size for better usability */
+            background-color: #222;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 1; /* Ensure it's behind the buttons */
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+        }
+
+        /* SVG arrow styling and color coding */
+        .arrow-icon {
+            width: 15px; /* Adjusted size for better usability */
+            height: 15px; /* Adjusted size for better usability */
+            fill: white; /* Default fill color for arrows */
+        }
+
+        /* PlayStation-like color coding for arrows */
+        #upBtn .arrow-icon { fill: #4CAF50; /* Green */ }
+        #downBtn .arrow-icon { fill: #F44336; /* Red */ }
+        #leftBtn .arrow-icon { fill: #2196F3; /* Blue */ }
+        #rightBtn .arrow-icon { fill: #E91E63; /* Pink */ }
+
+        /* Styles for diagonal buttons */
+        .dpad-diagonal-button {
+            position: absolute;
+            width: 20px; /* Tiny size */
+            height: 20px; /* Tiny size */
+            background-color: #666; /* Neutral background */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 0.5px solid #555;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            opacity: 0.5; /* Transparent */
+        }
+
+        .dpad-diagonal-button:active {
+            background-color: #888;
+            box-shadow: inset 0 0.5px 1px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Positioning for diagonal buttons */
+        /* 1:30 o'clock (Up-Right) */
+        #upRightBtn {
+            top: 15%; /* Adjust as needed */
+            right: 15%; /* Adjust as needed */
+            transform: translate(50%, -50%); /* Centering adjustment */
+        }
+        /* 4:30 o'clock (Down-Right) */
+        #downRightBtn {
+            bottom: 15%; /* Adjust as needed */
+            right: 15%; /* Adjust as needed */
+            transform: translate(50%, 50%); /* Centering adjustment */
+        }
+        /* 7:30 o'clock (Down-Left) */
+        #downLeftBtn {
+            bottom: 15%; /* Adjust as needed */
+            left: 15%; /* Adjust as needed */
+            transform: translate(-50%, 50%); /* Centering adjustment */
+        }
+        /* 10:30 o'clock (Up-Left) */
+        #upLeftBtn {
+            top: 15%; /* Adjust as needed */
+            left: 15%; /* Adjust as needed */
+            transform: translate(-50%, -50%); /* Centering adjustment */
+        }
+
+        /* Diagonal button icon (simple dot) */
+        .dpad-diagonal-button .dot-icon {
+            width: 8px; /* Size of the dot */
+            height: 8px;
+            background-color: white; /* White dot */
+            border-radius: 50%;
+        }
+
     </style>
 </head>
-<body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <a href="https://zapback100.github.io/Dads-Games/index.html">Back to Main Menu</a>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex flex-col items-center justify-center p-4 relative">
+    <div class="bg-white p-6 rounded-xl shadow-lg mb-6 w-full max-w-4xl">
+        <p class="text-gray-700 mb-4 text-center text-sm sm:text-base">Press <span class="font-bold text-blue-600">SPACEBAR</span> to start/reset. Use A/D to move left/right, W to jump, S to crouch. On-screen D-pad controls simulate these keys, allowing for simultaneous actions (e.g., holding 'Up' and 'Right' to jump while moving right).</p>
+        <div id="controls" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm sm:text-base">
+            <div class="flex flex-col space-y-2">
+                <label for="manualMode" class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="manualMode" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                    <span>Manual Run Mode</span>
+                </label>
+
+                <label for="manualSpeedMultiplier" class="flex flex-col">
+                    <span>Manual Speed Multiplier: <span id="manualSpeedMultiplierValue" class="font-semibold">0.5</span></span>
+                    <input type="range" id="manualSpeedMultiplier" min="0.1" max="2" step="0.05" value="0.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="tapCurveExponent" class="flex flex-col">
+                    <span>Tap Curve Exponent: <span id="tapCurveExponentValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="tapCurveExponent" min="0.1" max="1.0" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="speed" class="flex flex-col">
+                    <span>Speed: <span id="speedValue" class="font-semibold">2.5</span></span>
+                    <input type="range" id="speed" min="1" max="2.5" step="0.05" value="2.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="expression" class="flex flex-col">
+                    <span>Expression:</span>
+                    <select id="expression" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="neutral" selected>Neutral</option>
+                        <option value="happy">Happy</option>
+                        <option value="sad">Sad</option>
+                        <option value="angry">Angry</option>
+                        <option value="surprised">Surprised</option>
+                        <option value="tired">Tired</option>
+                        <option value="trying">Trying</option>
+                    </select>
+                </label>
+
+                <label for="crouchExtraBend" class="flex flex-col">
+                    <span>Crouch Extra Bend: <span id="crouchExtraBendValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="crouchExtraBend" min="0" max="1.5" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <strong class="mt-4 text-gray-800">Right Direction (dir=1):</strong>
+                <label for="gaitAmplitude" class="flex flex-col">
+                    <span>Gait Amplitude: <span id="gaitAmplitudeValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="gaitAmplitude" min="0" max="2" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="stepFrequency" class="flex flex-col">
+                    <span>Step Frequency: <span id="stepFrequencyValue" class="font-semibold">0.05</span></span>
+                    <input type="range" id="stepFrequency" min="0.05" max="0.2" step="0.01" value="0.05" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+                
+                <label for="armSwingMultiplier" class="flex flex-col">
+                    <span>Arm Swing Multiplier: <span id="armSwingMultiplierValue" class="font-semibold">0.75</span></span>
+                    <input type="range" id="armSwingMultiplier" min="0" max="2" step="0.05" value="0.75" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+            </div>
+
+            <div class="flex flex-col space-y-2">
+                <label for="frontKneeBend" class="flex flex-col">
+                    <span>Front Knee Bend: <span id="frontKneeBendValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="frontKneeBend" min="0" max="1" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMax" class="flex flex-col">
+                    <span>Back Knee Bend Max: <span id="backKneeBendMaxValue" class="font-semibold">0.7</span></span>
+                    <input type="range" id="backKneeBendMax" min="0" max="1.5" step="0.05" value="0.7" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMultiplier" class="flex flex-col">
+                    <span>Back Knee Bend Multiplier: <span id="backKneeBendMultiplierValue" class="font-semibold">2.5</span></span>
+                    <input type="range" id="backKneeBendMultiplier" min="1" max="4" step="0.1" value="2.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="elbowBend" class="flex flex-col">
+                    <span>Elbow Bend: <span id="elbowBendValue" class="font-semibold">1.2</span></span>
+                    <input type="range" id="elbowBend" min="0" max="4" step="0.05" value="1.2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="torsoThickness" class="flex flex-col">
+                    <span>Torso Thickness: <span id="torsoThicknessValue" class="font-semibold">2</span></span>
+                    <input type="range" id="torsoThickness" min="1" max="10" step="0.5" value="2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <strong class="mt-4 text-gray-800">Left Direction (dir=-1):</strong>
+                <label for="gaitAmplitudeLeft" class="flex flex-col">
+                    <span>Gait Amplitude Left: <span id="gaitAmplitudeLeftValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="gaitAmplitudeLeft" min="0" max="2" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="stepFrequencyLeft" class="flex flex-col">
+                    <span>Step Frequency Left: <span id="stepFrequencyLeftValue" class="font-semibold">0.05</span></span>
+                    <input type="range" id="stepFrequencyLeft" min="0.05" max="0.2" step="0.01" value="0.05" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="frontKneeBendLeft" class="flex flex-col">
+                    <span>Front Knee Bend Left: <span id="frontKneeBendLeftValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="frontKneeBendLeft" min="0" max="1" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMaxLeft" class="flex flex-col">
+                    <span>Back Knee Bend Max Left: <span id="backKneeBendMaxLeftValue" class="font-semibold">0.7</span></span>
+                    <input type="range" id="backKneeBendMaxLeft" min="0" max="1.5" step="0.05" value="0.7" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMultiplierLeft" class="flex flex-col">
+                    <span>Back Knee Bend Multiplier Left: <span id="backKneeBendMultiplierLeftValue" class="font-semibold">2.5</span></span>
+                    <input type="range" id="backKneeBendMultiplierLeft" min="1" max="4" step="0.1" value="2.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="elbowBendLeft" class="flex flex-col">
+                    <span>Elbow Bend Left: <span id="elbowBendLeftValue" class="font-semibold">1.2</span></span>
+                    <input type="range" id="elbowBendLeft" min="0" max="4" step="0.05" value="1.2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="torsoThicknessLeft" class="flex flex-col">
+                    <span>Torso Thickness Left: <span id="torsoThicknessLeftValue" class="font-semibold">3</span></span>
+                    <input type="range" id="torsoThicknessLeft" min="1" max="10" step="0.5" value="3" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="armSwingMultiplierLeft" class="flex flex-col">
+                    <span>Arm Swing Multiplier Left: <span id="armSwingMultiplierLeftValue" class="font-semibold">1</span></span>
+                    <input type="range" id="armSwingMultiplierLeft" min="0" max="2" step="0.05" value="1" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="canvas-container">
+        <canvas id="c" width="600" height="400" class="shadow-xl"></canvas>
+
+        <!-- D-pad Controls -->
+        <div class="dpad-controls">
+            <div class="dpad-center"></div>
+            <button id="upBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M7 14l5-5 5 5z"/>
+                </svg>
+            </button>
+            <button id="downBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M7 10l5 5 5-5z"/>
+                </svg>
+            </button>
+            <button id="leftBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M14 7l-5 5 5 5z"/>
+                </svg>
+            </button>
+            <button id="rightBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M10 7l5 5-5 5z"/>
+                </svg>
+            </button>
+
+            <!-- Diagonal Buttons -->
+            <button id="upRightBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="downRightBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="downLeftBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="upLeftBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+        </div>
+    </div>
+
     <script>
-        const canvas = document.getElementById('gameCanvas');
+        // Get canvas and its 2D rendering context
+        const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
 
-        // Reference Notes
-        const radiusSemicircle = 36.5; // in meters
-        const straightLength = 84.39;  // in meters
-        const laneWidth = 1.22;        // in meters
-        const nLanes = 8;
+        // Get control elements from the DOM
+        const speedSelect = document.getElementById('speed');
+        const expressionSelect = document.getElementById('expression');
+        const manualModeCheckbox = document.getElementById('manualMode');
+        const manualSpeedMultiplierSelect = document.getElementById('manualSpeedMultiplier');
+        const tapCurveExponentSelect = document.getElementById('tapCurveExponent'); // New slider
+        // New arm swing sliders
+        const armSwingMultiplierSelect = document.getElementById('armSwingMultiplier');
+        const armSwingMultiplierLeftSelect = document.getElementById('armSwingMultiplierLeft');
 
-        const trackWidth = laneWidth * nLanes;
+        // D-pad control buttons
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const upBtn = document.getElementById('upBtn');
+        const downBtn = document.getElementById('downBtn');
 
-        const runnerProportions = {
-          torso: 0.5,
-          upperLeg: 0.5,
-          lowerLeg: 0.5,
-          upperArm: 0.35,
-          lowerArm: 0.35,
-          headRadius: 0.2
+        // Diagonal buttons
+        const upRightBtn = document.getElementById('upRightBtn');
+        const downRightBtn = document.getElementById('downRightBtn');
+        const downLeftBtn = document.getElementById('downLeftBtn');
+        const upLeftBtn = document.getElementById('upLeftBtn');
+
+
+        // Animation and game state variables
+        let position = 0; // Horizontal position of the stickman
+        let y; // Vertical position of the stickman's hip (computed each frame)
+        let vy = 0; // Vertical velocity for jumping
+        let dir = 1; // Direction of movement (1 for right, -1 for left)
+        let onGround = true; // Flag to check if stickman is on the ground
+        let stepCycle = 0; // Controls the walking animation phase
+        let keys = {}; // Stores the state of pressed keys
+
+        let blinkTimer = 0; // Timer for eye blinking
+        let isBlinking = false; // Flag for current blinking state
+        let nextBlinkTime = getNextBlinkTime(); // When the next blink should occur
+
+        let isCrouching = false; // Flag for crouching state
+
+        // Variables for manual run mode (Z/X and C/V tapping)
+        let leftTapState = 0; // 0: expect Z, 1: expect X
+        let rightTapState = 0; // 0: expect C, 1: expect V
+        let lastLeftTapTime = 0; // Timestamp of last left tap
+        let lastRightTapTime = 0; // Timestamp of last right tap
+        let currentLeftSpeed = 0; // Calculated speed from left taps
+        let currentRightSpeed = 0; // Calculated speed from right taps
+
+        // Game State variables
+        let gameState = 'idle'; // 'idle', 'countdown', 'running'
+        let startTime = 0; // Timestamp when the game starts running
+        let animationFrameId; // To store the requestAnimationFrame ID for cancellation
+
+        // Countdown message variables for canvas drawing
+        let currentCountdownMessage = '';
+        let countdownMessageEndTime = 0;
+
+        // Tone.js setup for sound effects
+        const synth = new Tone.Synth().toDestination(); // Basic synthesizer for beeps
+        const beepFrequencies = {
+            'Ready!': 'C4', // Middle C
+            'Set!': 'D4',   // D above middle C
+            'Go!': 'G4'     // G above middle C
         };
 
-        const strideFrequency = 3.5; // Hz
-        const stancePhase = 0.4;
-        const swingPhase = 0.6;
-
-        // Game Settings
-        const raceDistances = [100, 200, 400];
-        let currentRaceDistance = 400; // Default
-        const maxPlayers = 2;
-        const totalRunners = nLanes;
-
-        // Game State
-        let runners = [];
-        let raceStarted = false;
-        let raceFinished = false;
-        let debugMode = false;
-        let lastTimestamp = 0;
-
-        // Scale for screen display (px per meter)
-        const scale = 4.0; // Adjusted for canvas size (width ~177m *4 =708px, height ~93m *4 =372px)
-
-        // Camera offset to center the track
-        const maxR = radiusSemicircle + trackWidth;
-        const trackBoundingWidth = straightLength + 2 * maxR;
-        const trackBoundingHeight = 2 * maxR;
-        const cameraOffsetX = (canvas.width - trackBoundingWidth * scale) / 2;
-        const cameraOffsetY = (canvas.height - trackBoundingHeight * scale) / 2;
-
-        // Runner Class
-        class Runner {
-          constructor(lane, isPlayer) {
-            this.lane = lane;
-            this.isPlayer = isPlayer;
-            this.phase = Math.random();
-            this.distanceTraveled = 0;
-            this.speed = isPlayer ? 8 : 7 + Math.random() * 1.5; // m/s (adjust for 400m race pace)
-            this.stagger = this.calculateStagger(currentRaceDistance);
-            this.distanceTraveled = -this.stagger; // Start behind for outer lanes
-            this.joints = { hip1: 0, knee1: 0, hip2: 0, knee2: 0, shoulder1: 0, elbow1: 0, shoulder2: 0, elbow2: 0 };
-          }
-
-          calculateStagger(distance) {
-            const numCurves = distance === 100 ? 0 : distance === 200 ? 1 : 2;
-            return numCurves * Math.PI * laneWidth * this.lane; // Extra distance per curve for lane (lane 0 = 0 stagger)
-          }
-
-          update(dt) {
-            this.phase = (this.phase + strideFrequency * dt) % 1;
-            this.distanceTraveled += this.speed * dt;
-
-            // Simple sine-based gait for joint angles (in degrees)
-            const twoPi = 2 * Math.PI;
-            const phase1 = this.phase;
-            const phase2 = (this.phase + 0.5) % 1;
-
-            this.joints.hip1 = 40 * Math.sin(twoPi * phase1);
-            this.joints.knee1 = 60 * Math.max(0, Math.sin(twoPi * phase1 + Math.PI / 2));
-            this.joints.hip2 = 40 * Math.sin(twoPi * phase2);
-            this.joints.knee2 = 60 * Math.max(0, Math.sin(twoPi * phase2 + Math.PI / 2));
-            this.joints.shoulder1 = -this.joints.hip1;
-            this.joints.elbow1 = 30 * Math.sin(twoPi * phase1 + Math.PI);
-            this.joints.shoulder2 = -this.joints.hip2;
-            this.joints.elbow2 = 30 * Math.sin(twoPi * phase2 + Math.PI);
-
-            // Check for finish
-            if (this.distanceTraveled >= currentRaceDistance && !raceFinished) {
-              raceFinished = true;
-              alert(`Runner in lane ${this.lane + 1} wins!`);
+        // Function to resume audio context on user interaction
+        // This is necessary for audio to play in browsers that require user gesture
+        function resumeAudioContext() {
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume();
             }
-          }
+        }
+        // Add a listener for any user interaction to resume audio
+        document.addEventListener('click', resumeAudioContext, { once: true });
+        document.addEventListener('keydown', resumeAudioContext, { once: true });
 
-          draw() {
-            const { position, angle } = this.getPositionAndAngle(this.distanceTraveled);
-            const scaledX = position.x * scale + cameraOffsetX;
-            const scaledY = position.y * scale + cameraOffsetY;
+
+        // Fixed ground line (relative to canvas height)
+        const groundYRatio = 300 / 400; // Original ratio for ground position
+        let groundY; // Will be calculated based on current canvas height
+
+        const numLanes = 8; // Number of running lanes
+        let laneHeight; // Will be calculated dynamically
+        let stickmanLane = 2; // The lane the stickman is in (1-indexed)
+        let stickmanGroundY; // The effective ground Y for the stickman in their lane
+
+        // Leg constants (consistent lengths for walking and crouching)
+        const upperLegLen = 20;
+        const lowerLegLen = 25;
+        const footRadius = 2; // Reverted to original size
+        const footHeight = footRadius * 2; // Equivalent height for collision/positioning (approximate diameter)
+
+        // Arm constants
+        const upperArmLen = 19.36;
+        const lowerArmLen = 19.36;
+
+        // Maximum strides per second
+        const MAX_STRIDES_PER_SECOND = 4;
+        // Calculate the maximum stepCycle advance per frame
+        // A full stride is 2 * Math.PI units of stepCycle.
+        // Assuming 60 frames per second, the max advance per frame is (MAX_STRIDES_PER_SECOND * 2 * Math.PI) / 60.
+        const MAX_STEPCYCLE_ADVANCE_PER_FRAME = (MAX_STRIDES_PER_SECOND * 2 * Math.PI) / 60;
+
+        // Global variable for pixels per meter, updated in updateDimensions
+        let pixelsPerMeter = 50; // Base value, will be scaled
+
+        // Cloud data - initial positions and parallax factors
+        const clouds = [
+            { initialX: 100, y: 50, width: 60, height: 30, parallaxFactor: 0.1 },
+            { initialX: 300, y: 80, width: 80, height: 40, parallaxFactor: 0.05 },
+            { initialX: 550, y: 60, width: 70, height: 35, parallaxFactor: 0.08 },
+            { initialX: 700, y: 90, width: 50, height: 25, parallaxFactor: 0.12 }
+        ];
+
+        // Function to update dimensions based on current canvas size
+        function updateDimensions() {
+            groundY = canvas.height * groundYRatio; // Calculate ground Y based on canvas height
+            laneHeight = (canvas.height - groundY) / numLanes; // Calculate height of each lane
+            // Calculate stickman's effective ground Y in their lane, centered
+            stickmanGroundY = groundY + (stickmanLane - 1) * laneHeight + laneHeight / 2;
+            pixelsPerMeter = 50 * (canvas.width / 600); // Update scaled pixelsPerMeter based on canvas width
+        }
+
+        // Function to resize canvas
+        function resizeCanvas() {
+            const containerWidth = canvas.parentElement.clientWidth;
+            // Maintain a reasonable aspect ratio, e.g., 3:2
+            const newWidth = Math.min(containerWidth, 800); // Max width of 800px
+            const newHeight = (newWidth / 3) * 2; // 3:2 aspect ratio
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            updateDimensions(); // Update dimensions before drawing
+            draw(); // Redraw content after resizing
+        }
+
+        // Initial resize and add event listener for window resize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Call once to set initial size
+
+        // Function to simulate keyboard events for mobile controls
+        function simulateKeyEvent(key, type) {
+            const event = new KeyboardEvent(type, {
+                key: key,
+                code: key,
+                bubbles: true,
+                cancelable: true
+            });
+            document.dispatchEvent(event);
+        }
+
+        // Function to simulate multiple key events for diagonal controls
+        function simulateMultiKeyEvents(keysArray, type) {
+            keysArray.forEach(key => {
+                const event = new KeyboardEvent(type, {
+                    key: key,
+                    code: key,
+                    bubbles: true,
+                    cancelable: true
+                });
+                document.dispatchEvent(event);
+            });
+        }
+
+        // Event listener for key presses (keyboard and simulated)
+        document.addEventListener('keydown', e => {
+            const lowerCaseKey = e.key.toLowerCase();
+            keys[lowerCaseKey] = true; // Mark key as pressed
+            // console.log("Keydown:", lowerCaseKey, "Current keys:", { ...keys }); // Debugging log
+
+            // Handle spacebar for game start/reset
+            if (lowerCaseKey === ' ') {
+                if (gameState === 'idle') {
+                    startCountdown(); // Start countdown if idle
+                } else if (gameState === 'running') {
+                    resetGame(); // Reset game if running
+                }
+            }
+
+            // Manual mode tapping logic (only if game is running)
+            if (gameState === 'running' && manualModeCheckbox.checked) {
+                const now = performance.now();
+                const tapCurveExponent = parseFloat(tapCurveExponentSelect.value);
+
+                if (lowerCaseKey === 'z' && leftTapState === 0) {
+                    leftTapState = 1;
+                    const delta = now - lastLeftTapTime;
+                    lastLeftTapTime = now;
+                    if (delta > 0 && delta < 1000) {
+                        currentLeftSpeed = Math.min(getSpeed(), Math.pow(1000 / delta, tapCurveExponent) * parseFloat(manualSpeedMultiplierSelect.value));
+                    }
+                } else if (lowerCaseKey === 'x' && leftTapState === 1) {
+                    leftTapState = 0;
+                    const delta = now - lastLeftTapTime;
+                    lastLeftTapTime = now;
+                    if (delta > 0 && delta < 1000) {
+                        currentLeftSpeed = Math.min(getSpeed(), Math.pow(1000 / delta, tapCurveExponent) * parseFloat(manualSpeedMultiplierSelect.value));
+                    }
+                }
+
+                if (lowerCaseKey === 'c' && rightTapState === 0) {
+                    rightTapState = 1;
+                    const delta = now - lastRightTapTime;
+                    lastRightTapTime = now;
+                    if (delta > 0 && delta < 1000) {
+                        currentRightSpeed = Math.min(getSpeed(), Math.pow(1000 / delta, tapCurveExponent) * parseFloat(manualSpeedMultiplierSelect.value));
+                    }
+                } else if (lowerCaseKey === 'v' && rightTapState === 1) {
+                    rightTapState = 0;
+                    const delta = now - lastRightTapTime;
+                    lastRightTapTime = now;
+                    if (delta > 0 && delta < 1000) {
+                        currentRightSpeed = Math.min(getSpeed(), Math.pow(1000 / delta, tapCurveExponent) * parseFloat(manualSpeedMultiplierSelect.value));
+                    }
+                }
+            }
+        });
+
+        // Event listener for key releases (keyboard and simulated)
+        document.addEventListener('keyup', e => {
+            const lowerCaseKey = e.key.toLowerCase();
+            keys[lowerCaseKey] = false; // Mark key as released
+            // console.log("Keyup:", lowerCaseKey, "Current keys:", { ...keys }); // Debugging log
+        });
+
+        // Add touch and mouse event listeners for D-pad controls
+        const directionalButtons = [
+            { button: leftBtn, key: 'a' },
+            { button: rightBtn, key: 'd' },
+            { button: upBtn, key: 'w' },
+            { button: downBtn, key: 's' }
+        ];
+
+        directionalButtons.forEach(({ button, key }) => {
+            button.addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keydown'); });
+            button.addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keyup'); });
+            button.addEventListener('mousedown', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keydown'); });
+            button.addEventListener('mouseup', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keyup'); });
+            button.addEventListener('mouseleave', (e) => {
+                // Only simulate keyup if the mouse button was still down when leaving the element
+                if (e.buttons === 1) { simulateKeyEvent(key, 'keyup'); }
+            });
+        });
+
+        // Add touch and mouse event listeners for diagonal buttons
+        const diagonalButtons = [
+            { button: upRightBtn, keys: ['w', 'd'] },
+            { button: downRightBtn, keys: ['d', 's'] },
+            { button: downLeftBtn, keys: ['a', 's'] },
+            { button: upLeftBtn, keys: ['a', 'w'] }
+        ];
+
+        diagonalButtons.forEach(({ button, keys }) => {
+            button.addEventListener('touchstart', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keydown'); });
+            button.addEventListener('touchend', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keyup'); });
+            button.addEventListener('mousedown', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keydown'); });
+            button.addEventListener('mouseup', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keyup'); });
+            button.addEventListener('mouseleave', (e) => {
+                // Only simulate keyup if the mouse button was still down when leaving the element
+                if (e.buttons === 1) { simulateMultiKeyEvents(keys, 'keyup'); }
+            });
+        });
+
+
+        // Function to get the current speed from the slider
+        function getSpeed() {
+            return parseFloat(speedSelect.value);
+        }
+
+        // Function to determine the next blink time for the stickman
+        function getNextBlinkTime() {
+            return performance.now() + 3000 + Math.random() * 2000; // Blink every 3-5 seconds
+        }
+
+        // Main update function for animation logic
+        function update() {
+            // console.log("Update loop - GameState:", gameState, "Keys:", { ...keys }, "onGround:", onGround); // Debugging log
+
+            // Only update stickman position and animation if game is running
+            if (gameState === 'running') {
+                let desiredVx = 0; // Desired horizontal velocity
+                const manualMode = manualModeCheckbox.checked;
+
+                if (!manualMode) {
+                    // Automatic movement based on A/D keys
+                    if (keys['a']) {
+                        desiredVx -= getSpeed();
+                        dir = -1; // Set direction to left
+                    }
+                    if (keys['d']) {
+                        desiredVx += getSpeed();
+                        dir = 1; // Set direction to right
+                    }
+                } else {
+                    // Manual movement based on Z/X and C/V taps
+                    const now = performance.now();
+                    // Decay manual speed if no taps for a while
+                    if (now - lastLeftTapTime > 500) currentLeftSpeed = 0;
+                    if (now - lastRightTapTime > 500) currentRightSpeed = 0;
+                    desiredVx = currentRightSpeed - currentLeftSpeed; // Net speed from manual taps
+                    if (desiredVx !== 0) dir = desiredVx > 0 ? 1 : -1; // Set direction based on net speed
+
+                    // Cap desiredVx by the overall speed setting
+                    desiredVx = Math.sign(desiredVx) * Math.min(Math.abs(desiredVx), getSpeed());
+                }
+
+                // Calculate current step frequency based on direction
+                const currentStepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
+
+                // Calculate the maximum allowed velocity based on the stride limit and step frequency
+                const maxVxForStrideLimit = (currentStepFrequency > 0) ? (MAX_STEPCYCLE_ADVANCE_PER_FRAME / currentStepFrequency) : Infinity;
+
+                // Apply the velocity cap
+                let actualVx = desiredVx;
+                if (Math.abs(desiredVx) > maxVxForStrideLimit) {
+                    actualVx = Math.sign(desiredVx) * maxVxForStrideLimit;
+                }
+
+                position += actualVx; // Update position using the capped velocity
+
+                isCrouching = keys['s'] && onGround; // Check if crouching (S key pressed and on ground)
+
+                // Always apply gravity
+                vy += 0.6;
+                y += vy; // Always update y based on vertical velocity
+
+                // Calculate max leg height for collision detection
+                const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
+                const stickmanBottomY = y + maxLegHeight * (canvas.height / 400);
+
+                // Check for collision with the ground
+                if (stickmanBottomY >= stickmanGroundY) {
+                    y = stickmanGroundY - maxLegHeight * (canvas.height / 400); // Snap to ground
+                    vy = 0; // Stop vertical movement
+                    onGround = true; // Set on ground flag
+                } else {
+                    // If stickman is above the ground, he is not on the ground
+                    onGround = false;
+                }
+
+                // Handle jumping (W key pressed and onGround)
+                if (keys['w'] && onGround) {
+                    vy = -15; // Apply upward velocity for jump (increased for visibility)
+                    onGround = false; // Stickman is now in the air
+                }
+
+                // Advance step cycle only if moving on ground
+                if (onGround && actualVx !== 0) {
+                    const desiredStepAdvance = Math.abs(actualVx) * currentStepFrequency;
+                    stepCycle += desiredStepAdvance;
+                }
+
+            } else {
+                // If not running, ensure stickman is idle
+                stepCycle = 0; // Reset step cycle for idle pose
+                isCrouching = false; // Not crouching when idle
+                // Keep stickman on ground when idle
+                const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
+                y = stickmanGroundY - maxLegHeight * (canvas.height / 400);
+                vy = 0;
+                onGround = true;
+            }
+
+            // Handle eye blinking animation
+            const now = performance.now();
+            if (!isBlinking && now > nextBlinkTime) {
+                isBlinking = true;
+                blinkTimer = now + 150; // Blink duration
+            }
+            if (isBlinking && now > blinkTimer) {
+                isBlinking = false;
+                nextBlinkTime = getNextBlinkTime(); // Schedule next blink
+            }
+        }
+
+        // Function to format milliseconds into MM:SS.CC format
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const centiseconds = Math.floor((milliseconds % 1000) / 10);
+
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+        }
+
+        // This function now draws the stopwatch directly on the canvas
+        function drawStopwatch() {
+            let timeToDisplay = '00:00.00';
+            if (gameState === 'running') {
+                const elapsedTime = performance.now() - startTime;
+                timeToDisplay = formatTime(elapsedTime);
+            }
 
             ctx.save();
-            ctx.translate(scaledX, scaledY);
-            ctx.rotate(angle);
+            ctx.fillStyle = 'black'; // Text color for stopwatch
+            // Scale font size based on canvas width
+            ctx.font = `${24 * (canvas.width / 600)}px 'Fira Code', monospace`;
+            ctx.textAlign = 'right'; // Align text to the right
+            ctx.textBaseline = 'top'; // Align text to the top
 
-            // Draw stickman (side view, scaled)
-            const s = scale;
-            const toRad = (deg) => deg * Math.PI / 180;
+            // Position in the top right corner with some padding, scaled
+            const padding = 10 * (canvas.width / 600);
+            ctx.fillText(timeToDisplay, canvas.width - padding, padding);
+            ctx.restore();
+        }
 
-            // Hip at origin
-            // Torso
+        // New function to draw the countdown message on the canvas
+        function drawCountdownMessage() {
+            const now = performance.now();
+            if (currentCountdownMessage && now < countdownMessageEndTime) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Darker text for visibility
+                // Scale font size
+                ctx.font = `${60 * (canvas.width / 600)}px Arial Black`; // Large, bold font
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Calculate opacity for fade-out effect
+                const fadeDuration = 300; // milliseconds
+                const remainingTime = countdownMessageEndTime - now;
+                let opacity = 1;
+                if (remainingTime < fadeDuration) {
+                    opacity = remainingTime / fadeDuration;
+                }
+                ctx.globalAlpha = opacity;
+
+                ctx.fillText(currentCountdownMessage, canvas.width / 2, canvas.height / 2);
+                ctx.restore();
+            }
+        }
+
+        // Function to display a countdown message and play a sound
+        function showCountdownMessage(message, duration = 500) {
+            currentCountdownMessage = message;
+            countdownMessageEndTime = performance.now() + duration;
+
+            // Play sound based on the message
+            if (beepFrequencies[message]) {
+                synth.triggerAttackRelease(beepFrequencies[message], '8n'); // Play the note for an 8th note duration
+            }
+        }
+
+        // Function to start the game countdown
+        function startCountdown() {
+            gameState = 'countdown';
+            position = 0; // Reset position for a new race
+            showCountdownMessage('Ready!', 700);
+            setTimeout(() => {
+                showCountdownMessage('Set!', 700);
+                setTimeout(() => {
+                    showCountdownMessage('Go!', 700);
+                    setTimeout(() => {
+                        gameState = 'running';
+                        startTime = performance.now(); // Start stopwatch
+                        currentCountdownMessage = ''; // Clear message after "Go!"
+                    }, 700);
+                }, 1000); // Delay before "Set!"
+            }, 1000); // Delay before "Ready!"
+        }
+
+        // Function to reset the game to its initial idle state
+        function resetGame() {
+            gameState = 'idle';
+            position = 0;
+            startTime = 0;
+            currentCountdownMessage = ''; // Clear any active countdown message
+            countdownMessageEndTime = 0;
+            keys = {}; // Clear all pressed keys
+            currentLeftSpeed = 0; // Reset manual speeds
+            currentRightSpeed = 0;
+            leftTapState = 0;
+            rightTapState = 0;
+            dir = 1; // Reset direction
+            stepCycle = 0; // Reset animation cycle
+            // Ensure stickman is in idle pose at the correct ground level
+            const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
+            y = stickmanGroundY - maxLegHeight * (canvas.height / 400); // Set y for idle pose
+            vy = 0;
+            onGround = true;
+        }
+
+        // Function to draw clouds with parallax effect
+        function drawClouds() {
+            ctx.save();
+            ctx.fillStyle = 'white';
+            clouds.forEach(cloud => {
+                // Calculate cloud's x position relative to the canvas, with parallax
+                let renderX = cloud.initialX - (position * cloud.parallaxFactor);
+
+                // Wrap around the canvas width to create continuous scrolling
+                renderX = renderX % canvas.width;
+                if (renderX < -cloud.width * (canvas.width / 600)) { // If it goes off left, bring it to the right
+                    renderX += canvas.width + cloud.width * (canvas.width / 600);
+                } else if (renderX > canvas.width) { // If it goes off right, bring it to the left (shouldn't happen with positive position)
+                    renderX -= canvas.width + cloud.width * (canvas.width / 600);
+                }
+
+                // Scale cloud dimensions and y position
+                const scaledWidth = cloud.width * (canvas.width / 600);
+                const scaledHeight = cloud.height * (canvas.height / 400);
+                const scaledY = cloud.y * (canvas.height / 400);
+
+                // Draw simple cloud shape using multiple circles
+                ctx.beginPath();
+                ctx.arc(renderX, scaledY, scaledWidth / 3, 0, Math.PI * 2);
+                ctx.arc(renderX + scaledWidth * 0.4, scaledY - scaledHeight * 0.3, scaledWidth / 3, 0, Math.PI * 2);
+                ctx.arc(renderX + scaledWidth * 0.7, scaledY, scaledWidth / 3, 0, Math.PI * 2);
+                ctx.arc(renderX + scaledWidth * 0.3, scaledY + scaledHeight * 0.3, scaledWidth / 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+
+
+        function drawGround() {
+            ctx.fillStyle = '#87CEEB'; // Light blue sky
+            ctx.fillRect(0, 0, canvas.width, groundY);
+
+            drawClouds(); // Draw clouds after sky is painted
+
+            ctx.fillStyle = '#228B22'; // Forest green grass
+            ctx.fillRect(0, groundY - 50 * (canvas.height / 400), canvas.width, 50 * (canvas.height / 400));
+
+            ctx.fillStyle = '#c1440e'; // Brick red for track
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i <= numLanes; i++) {
+                const y = groundY + i * laneHeight;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            const interval = 100 * (canvas.width / 600);
+            const dashLength = 5 * (canvas.height / 400);
+            const offset = position % interval;
+            const pixelsPerMeter = 50 * (canvas.width / 600);
+
+            for (let xi = -interval; xi < canvas.width + interval; xi += interval) {
+                const draw_x = xi - offset;
+                ctx.beginPath();
+                ctx.moveTo(draw_x, stickmanGroundY - dashLength / 2);
+                ctx.lineTo(draw_x, stickmanGroundY + dashLength / 2);
+                ctx.stroke();
+
+                const relative = draw_x - canvas.width / 2;
+                const meter = Math.round((position + relative) / pixelsPerMeter);
+                if (meter % 10 === 0 && meter >= 0 && meter <= 100) {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(draw_x - 15 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 30 * (canvas.width / 600), 15 * (canvas.height / 400));
+                    ctx.fillStyle = 'black';
+                    ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(meter + 'm', draw_x, groundY - 17.5 * (canvas.height / 400));
+                }
+
+                if (meter === 0) {
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(draw_x, groundY);
+                    ctx.lineTo(draw_x, canvas.height);
+                    ctx.stroke();
+                    ctx.lineWidth = 2;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(draw_x - 35 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 70 * (canvas.width / 600), 15 * (canvas.height / 400));
+                    ctx.fillStyle = 'black';
+                    ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Start', draw_x, groundY - 17.5 * (canvas.height / 400));
+
+                    for (let i = 1; i <= numLanes; i++) {
+                        ctx.save();
+                        ctx.translate(draw_x - 10 * (canvas.width / 600), groundY + (i - 0.5) * laneHeight);
+                        ctx.rotate(Math.PI / 2);
+                        ctx.fillStyle = 'white';
+                        ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(i, 0, 0);
+                        ctx.restore();
+                    }
+                }
+
+                if (meter === 100) {
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(draw_x, groundY);
+                    ctx.lineTo(draw_x, canvas.height);
+                    ctx.stroke();
+                    ctx.lineWidth = 2;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(draw_x - 35 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 70 * (canvas.width / 600), 15 * (canvas.height / 400));
+                    ctx.fillStyle = 'black';
+                    ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Finish', draw_x, groundY - 17.5 * (canvas.height / 400));
+                }
+            }
+        }
+
+        function drawStickman() {
+            ctx.lineWidth = 2 * (canvas.width / 600); // Scale line width
+            ctx.strokeStyle = '#000';
+            ctx.save();
+
+            // Stickman only moves if game is running
+            const moving = gameState === 'running' && ((keys['a'] || keys['d']) || currentLeftSpeed > 0 || currentRightSpeed > 0);
+
+            const gaitAmplitude = (dir === 1) ? parseFloat(document.getElementById('gaitAmplitude').value) : parseFloat(document.getElementById('gaitAmplitudeLeft').value);
+            const stepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
+            const frontKneeBend = (dir === 1) ? parseFloat(document.getElementById('frontKneeBend').value) : parseFloat(document.getElementById('frontKneeBendLeft').value);
+            const backKneeBendMax = (dir === 1) ? parseFloat(document.getElementById('backKneeBendMax').value) : parseFloat(document.getElementById('backKneeBendMaxLeft').value);
+            const backKneeBendMultiplier = (dir === 1) ? parseFloat(document.getElementById('backKneeBendMultiplier').value) : parseFloat(document.getElementById('backKneeBendMultiplierLeft').value);
+            const elbowBend = (dir === 1) ? parseFloat(document.getElementById('elbowBend').value) : parseFloat(document.getElementById('elbowBendLeft').value);
+            const torsoThickness = (dir === 1) ? parseFloat(document.getElementById('torsoThickness').value) : parseFloat(document.getElementById('torsoThicknessLeft').value);
+            const armSwingMultiplier = (dir === 1) ? parseFloat(armSwingMultiplierSelect.value) : parseFloat(armSwingMultiplierLeftSelect.value);
+
+
+            const crouchExtraBend = parseFloat(document.getElementById('crouchExtraBend').value);
+
+            // Legs
+            const phase = ((stepCycle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            let legAngles, kneeBends;
+
+            if (moving && onGround) {
+                legAngles = [
+                    Math.sin(phase) * gaitAmplitude,
+                    Math.sin(phase + Math.PI) * gaitAmplitude
+                ];
+                kneeBends = legAngles.map(a => {
+                    const isBack = (a < 0);
+                    return isBack ? Math.min(backKneeBendMax, -a * backKneeBendMultiplier) : frontKneeBend;
+                });
+            } else {
+                legAngles = [0, 0];
+                kneeBends = [0, 0];
+            }
+
+            if (isCrouching) {
+                kneeBends = kneeBends.map(b => b + crouchExtraBend);
+            }
+
+            // Compute max leg height for hip position - this is used for drawing, not for setting y
+            let legHeightLeft = upperLegLen * Math.cos(legAngles[0]) + lowerLegLen * Math.cos(legAngles[0] - kneeBends[0]) + footRadius;
+            let legHeightRight = upperLegLen * Math.cos(legAngles[1]) + lowerLegLen * Math.cos(legAngles[1] - kneeBends[1]) + footRadius;
+            let maxLegHeight = Math.max(legHeightLeft, legHeightRight);
+
+            // Add slight bobbing when walking on ground
+            let bobbingOffset = 0;
+            if (moving && onGround) {
+                bobbingOffset = Math.sin(phase) * 3 * (canvas.height / 400); // Scale bobbing
+            }
+
+            let x = canvas.width / 2;
+
+            let flipped = dir === -1;
+            if (flipped) {
+                ctx.translate(x, 0);
+                ctx.scale(-1, 1);
+                ctx.translate(-x, 0);
+            }
+
+            const hipSpread = (!moving) ? 3 * (canvas.width / 600) : 0; // Scale hip spread
+            // Use the current 'y' (hip position) from the update loop
+            const hipLeft = { x: x - hipSpread, y: y + bobbingOffset };
+            const hipRight = { x: x + hipSpread, y: y + bobbingOffset };
+            const shoulder = { x: x, y: y - 25 * (canvas.height / 400) + bobbingOffset }; // Scale shoulder height
+            const shoulderLeft = { x: x - torsoThickness * (canvas.width / 600), y: y - 25 * (canvas.height / 400) + bobbingOffset }; // Scale shoulder height and thickness
+            const shoulderRight = { x: x + torsoThickness * (canvas.width / 600), y: y - 25 * (canvas.height / 400) + bobbingOffset }; // Scale shoulder height and thickness
+            const neckTopY = shoulder.y - 5 * (canvas.height / 400); // Scale neck height
+
+            // Draw hips
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, -runnerProportions.torso * s);
-            ctx.strokeStyle = 'blue';
-            ctx.lineWidth = 3;
+            ctx.arc(hipLeft.x, hipLeft.y, 3 * (canvas.width / 600), 0, Math.PI * 2); // Scale hip radius
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(hipRight.x, hipRight.y, 3 * (canvas.width / 600), 0, Math.PI * 2); // Scale hip radius
+            ctx.fill();
+
+            // Draw shoulders
+            ctx.beginPath();
+            ctx.arc(shoulderLeft.x, shoulderLeft.y, 2.5 * (canvas.width / 600), 0, Math.PI * 2); // Scale shoulder radius
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(shoulderRight.x, shoulderRight.y, 2.5 * (canvas.width / 600), 0, Math.PI * 2); // Scale shoulder radius
+            ctx.fill();
+
+            // Neck
+            ctx.beginPath();
+            ctx.moveTo(x, shoulder.y);
+            ctx.lineTo(x, neckTopY);
             ctx.stroke();
 
             // Head
             ctx.beginPath();
-            ctx.arc(0, -runnerProportions.torso * s - runnerProportions.headRadius * s / 2, runnerProportions.headRadius * s, 0, 2 * Math.PI);
+            ctx.arc(x, neckTopY - 10 * (canvas.height / 400), 10 * (canvas.width / 600), 0, Math.PI * 2); // Scale head radius
+            ctx.fillStyle = '#D3D3D3'; // Light grey for face
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.stroke();
+            const faceDir = moving ? (flipped ? -dir : dir) : 0;
+            drawFace(x, neckTopY - 10 * (canvas.height / 400), expressionSelect.value, faceDir);
+
+            // Torso
+            ctx.beginPath();
+            ctx.moveTo(shoulderLeft.x, shoulder.y);
+            ctx.lineTo(shoulderRight.x, shoulder.y);
+            ctx.lineTo(x, y + bobbingOffset); // Use y + bobbingOffset for torso bottom
+            ctx.lineTo(shoulderLeft.x, shoulder.y);
             ctx.stroke();
 
-            // Legs (one forward, one back)
-            this.drawLimb(0, 0, this.joints.hip1, runnerProportions.upperLeg * s, this.joints.knee1, runnerProportions.lowerLeg * s);
-            this.drawLimb(0, 0, this.joints.hip2, runnerProportions.upperLeg * s, this.joints.knee2, runnerProportions.lowerLeg * s);
+            // Draw legs
+            drawLeg(hipLeft, upperLegLen * (canvas.height / 400), legAngles[0], lowerLegLen * (canvas.height / 400), kneeBends[0]);
+            drawLeg(hipRight, upperLegLen * (canvas.height / 400), legAngles[1], lowerLegLen * (canvas.height / 400), kneeBends[1]);
 
-            // Arms (from shoulder)
-            const shoulderY = -runnerProportions.torso * s * 0.8; // Shoulder position
-            this.drawLimb(0, shoulderY, this.joints.shoulder1, runnerProportions.upperArm * s, this.joints.elbow1, runnerProportions.lowerArm * s);
-            this.drawLimb(0, shoulderY, this.joints.shoulder2, runnerProportions.upperArm * s, this.joints.elbow2, runnerProportions.lowerArm * s);
+            // Arms
+            if (moving && onGround) {
+                const armPhase = phase + Math.PI;
+                // Multiply arm swing by 'dir' to mirror the swing direction relative to the stickman's body
+                const armAngles = [
+                    -Math.sin(armPhase) * armSwingMultiplier * dir,
+                    -Math.sin(armPhase + Math.PI) * armSwingMultiplier * dir
+                ];
+                // Apply elbowBend directly for constant bend
+                const bends = [elbowBend, elbowBend];
+
+                drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), armAngles[0], lowerArmLen * (canvas.height / 400), bends[0]);
+                drawArm(shoulderRight, upperArmLen * (canvas.height / 400), armAngles[1], lowerArmLen * (canvas.height / 400), bends[1]);
+            } else {
+                // Idle arms on hips
+                const leftHandTarget = {
+                    x: hipLeft.x - 3 * (canvas.width / 600),
+                    y: hipLeft.y - 4 * (canvas.height / 400)
+                };
+                const rightHandTarget = {
+                    x: hipRight.x + 3 * (canvas.width / 600),
+                    y: hipRight.y - 4 * (canvas.height / 400)
+                };
+
+                drawArmToHand(shoulderLeft, leftHandTarget);
+                drawArmToHand(shoulderRight, rightHandTarget);
+            }
 
             ctx.restore();
+        }
 
-            if (debugMode) {
-              ctx.fillStyle = 'black';
-              ctx.fillText(`Lane ${this.lane + 1}: Phase ${this.phase.toFixed(2)}, Dist ${this.distanceTraveled.toFixed(1)}m`, scaledX + 10, scaledY - 10);
-            }
-          }
+        function drawLeg(hip, upperLen, angle1, lowerLen, bendAmount) {
+            ctx.save();
+            ctx.strokeStyle = 'black';
 
-          drawLimb(startX, startY, angle1, length1, angle2, length2) {
-            const rad1 = toRad(angle1);
-            const endX1 = startX + length1 * Math.sin(rad1);
-            const endY1 = startY + length1 * Math.cos(rad1);
+            const jointX = hip.x + Math.sin(angle1) * upperLen;
+            const jointY = hip.y + Math.cos(angle1) * upperLen;
+            const lowerLegAngle = angle1 - bendAmount;
+            const endX = jointX + Math.sin(lowerLegAngle) * lowerLen;
+            const endY = jointY + Math.cos(lowerLegAngle) * lowerLen;
+
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX1, endY1);
-
-            const rad2 = toRad(angle2);
-            const endX2 = endX1 + length2 * Math.sin(rad1 + rad2);
-            const endY2 = endY1 + length2 * Math.cos(rad1 + rad2);
-            ctx.lineTo(endX2, endY2);
+            ctx.moveTo(hip.x, hip.y);
+            ctx.lineTo(jointX, jointY);
+            ctx.lineTo(endX, endY);
             ctx.stroke();
-          }
 
-          getPositionAndAngle(d) {
-            const r = radiusSemicircle + this.lane * laneWidth;
-            const leftCenterX = r;
-            const rightCenterX = straightLength + r;
-            const centerY = r;
+            ctx.beginPath();
+            const scaledFootRadius = footRadius * (canvas.width / 600);
+            ctx.arc(endX, endY, scaledFootRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
 
-            const cum1 = straightLength;
-            const cum2 = cum1 + Math.PI * r;
-            const cum3 = cum2 + straightLength;
-            const cum4 = cum3 + Math.PI * r;
+            ctx.restore();
+        }
 
-            let position = { x: 0, y: 0 };
-            let tangentAngle = 0;
+        function drawArm(start, len1, angle1, len2, bendAmount) {
+            const jointX = start.x + Math.sin(angle1) * len1;
+            const jointY = start.y + Math.cos(angle1) * len1;
+            const bendAngle = angle1 + bendAmount;
+            const endX = jointX + Math.sin(bendAngle) * (len2 * 0.7);
+            const endY = jointY + Math.cos(bendAngle) * (len2 * 0.7);
 
-            if (d < cum1) {
-              // Bottom straight
-              position.x = leftCenterX + d;
-              position.y = 0;
-              tangentAngle = 0; // Right
-            } else if (d < cum2) {
-              // Right curve
-              const fraction = (d - cum1) / (Math.PI * r);
-              const theta = 3 * Math.PI / 2 + fraction * Math.PI;
-              position.x = rightCenterX + r * Math.cos(theta);
-              position.y = centerY + r * Math.sin(theta);
-              tangentAngle = theta + Math.PI / 2; // Tangent for counter-clockwise
-            } else if (d < cum3) {
-              // Top straight
-              const fraction = (d - cum2) / straightLength;
-              position.x = rightCenterX - fraction * straightLength;
-              position.y = 2 * r;
-              tangentAngle = Math.PI; // Left
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(jointX, jointY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(endX, endY, 2 * (canvas.width / 600), 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function drawArmToHand(shoulderPos, handPos) {
+            const dx = handPos.x - shoulderPos.x;
+            const dy = handPos.y - shoulderPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            let elbowX, elbowY;
+            let finalHandX = handPos.x;
+            let finalHandY = handPos.y;
+
+            const scaledUpperArmLen = upperArmLen * (canvas.height / 400);
+            const scaledLowerArmLen = lowerArmLen * (canvas.height / 400);
+
+            if (dist > scaledUpperArmLen + scaledLowerArmLen) {
+                const ratio = (scaledUpperArmLen + scaledLowerArmLen) / dist;
+                elbowX = shoulderPos.x + dx * (scaledUpperArmLen / dist);
+                elbowY = shoulderPos.y + dy * (scaledUpperArmLen / dist);
+                finalHandX = shoulderPos.x + dx * ratio;
+                finalHandY = shoulderPos.y + dy * ratio;
             } else {
-              // Left curve
-              const fraction = (d - cum3) / (Math.PI * r);
-              const theta = Math.PI / 2 + fraction * Math.PI;
-              position.x = leftCenterX + r * Math.cos(theta);
-              position.y = centerY + r * Math.sin(theta);
-              tangentAngle = theta + Math.PI / 2; // Tangent for counter-clockwise
+                const cosAngle = (scaledUpperArmLen**2 + dist**2 - scaledLowerArmLen**2) / (2 * scaledUpperArmLen * dist);
+                const angleElbow = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+                const targetAngle = Math.atan2(dy, dx);
+                const sign = (handPos.x < shoulderPos.x) ? 1 : -1;
+                const shoulderAngle = targetAngle + sign * angleElbow;
+                elbowX = shoulderPos.x + Math.cos(shoulderAngle) * scaledUpperArmLen;
+                elbowY = shoulderPos.y + Math.sin(shoulderAngle) * scaledUpperArmLen;
             }
 
-            return { position, angle: tangentAngle };
-          }
+            ctx.beginPath();
+            ctx.moveTo(shoulderPos.x, shoulderPos.y);
+            ctx.lineTo(elbowX, elbowY);
+            ctx.lineTo(finalHandX, finalHandY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(finalHandX, finalHandY, 2 * (canvas.width / 600), 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.stroke();
         }
 
-        // Race Manager
-        function initializeRace(numPlayers = 1, distance = 400) {
-          currentRaceDistance = distance;
-          runners = [];
-          for (let lane = 0; lane < totalRunners; lane++) {
-            const isPlayer = lane < numPlayers;
-            runners.push(new Runner(lane, isPlayer));
-          }
-          raceStarted = true;
-          raceFinished = false;
-        }
+        function drawFace(x, y, expression, faceDir) {
+            const scaleFactor = canvas.width / 600;
+            const eyeGap = 4 * scaleFactor, eyeY = -3 * scaleFactor, mouthY = 3 * scaleFactor;
+            const eyeRadius = 2.5 * scaleFactor, pupilRadius = 1.2 * scaleFactor;
+            const offsetX = faceDir === 1 ? 2 * scaleFactor : faceDir === -1 ? -2 * scaleFactor : 0;
+            const mouthX = offsetX;
+            const leftX = -eyeGap + offsetX;
+            const rightX = eyeGap + offsetX;
 
-        // Draw Track Geometry
-        function drawTrack() {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.strokeStyle = 'gray';
-          ctx.lineWidth = 1;
+            ctx.save();
+            ctx.translate(x, y);
 
-          for (let k = 0; k <= nLanes; k++) {
-            const r = radiusSemicircle + k * laneWidth;
-            const leftCenterX = r * scale + cameraOffsetX;
-            const rightCenterX = (straightLength + r) * scale + cameraOffsetX;
-            const centerY = r * scale + cameraOffsetY;
+            if (isBlinking) {
+                ctx.beginPath();
+                ctx.lineWidth = 1 * scaleFactor;
+                ctx.moveTo(leftX - eyeRadius, eyeY);
+                ctx.lineTo(leftX + eyeRadius, eyeY);
+                ctx.moveTo(rightX - eyeRadius, eyeY);
+                ctx.lineTo(rightX + eyeRadius, eyeY);
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.lineWidth = 0.5 * scaleFactor;
+                ctx.arc(leftX, eyeY, eyeRadius, 0, Math.PI * 2);
+                ctx.arc(rightX, eyeY, eyeRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = 'blue';
+                ctx.beginPath();
+                ctx.arc(leftX, eyeY, pupilRadius, 0, Math.PI * 2);
+                ctx.arc(rightX, eyeY, pupilRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
             ctx.beginPath();
-            ctx.moveTo(leftCenterX, cameraOffsetY); // Adjusted for offset
-            ctx.lineTo(rightCenterX, cameraOffsetY);
-            ctx.arc(rightCenterX, centerY, r * scale, 3 * Math.PI / 2, Math.PI / 2, true);
-            ctx.lineTo(leftCenterX, 2 * r * scale + cameraOffsetY);
-            ctx.arc(leftCenterX, centerY, r * scale, Math.PI / 2, 3 * Math.PI / 2, true);
+            ctx.lineWidth = 1 * scaleFactor;
+            if (expression === 'happy') {
+                ctx.arc(mouthX, mouthY - 2 * scaleFactor, 5 * scaleFactor, 0, Math.PI, false);
+            } else if (expression === 'sad') {
+                ctx.arc(mouthX, mouthY + 2 * scaleFactor, 5 * scaleFactor, 0, Math.PI, true);
+            } else if (expression === 'angry') {
+                ctx.moveTo(mouthX - 3 * scaleFactor, mouthY);
+                ctx.lineTo(mouthX + 3 * scaleFactor, mouthY);
+            } else if (expression === 'surprised') {
+                ctx.arc(mouthX, mouthY, 2.5 * scaleFactor, 0, Math.PI * 2);
+            } else if (expression === 'tired') {
+                ctx.moveTo(mouthX - 4 * scaleFactor, mouthY + 2 * scaleFactor);
+                ctx.lineTo(mouthX + 4 * scaleFactor, mouthY + 2 * scaleFactor);
+            } else if (expression === 'trying') {
+                ctx.moveTo(mouthX - 4 * scaleFactor, mouthY);
+                ctx.lineTo(mouthX + 4 * scaleFactor, mouthY);
+            } else {
+                ctx.moveTo(mouthX - 4 * scaleFactor, mouthY);
+                ctx.lineTo(mouthX + 4 * scaleFactor, mouthY);
+            }
             ctx.stroke();
-          }
+
+            ctx.restore();
         }
 
-        // Main loop
-        function gameLoop(timestamp) {
-          if (!lastTimestamp) lastTimestamp = timestamp;
-          const dt = (timestamp - lastTimestamp) / 1000;
-          lastTimestamp = timestamp;
-
-          if (raceStarted && !raceFinished) {
-            runners.forEach(runner => runner.update(dt));
-          }
-
-          drawTrack();
-          runners.forEach(runner => runner.draw());
-
-          requestAnimationFrame(gameLoop);
+        function drawStartMessage() {
+            if (gameState === 'idle') {
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.font = `${30 * (canvas.width / 600)}px Arial Black`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Press SPACEBAR to Start!', canvas.width / 2, canvas.height / 2);
+                ctx.restore();
+            }
         }
 
-        // Event listeners for debug and controls (e.g., toggle debug with 'D')
-        document.addEventListener('keydown', e => {
-          if (e.key === 'd') debugMode = !debugMode;
-          if (e.key === 's' && !raceStarted) initializeRace(1, 400); // Start example race
+        // New function for drawing debug info on canvas
+        function drawDebugInfo() {
+            ctx.save();
+            ctx.fillStyle = 'black';
+            ctx.font = `${14 * (canvas.width / 600)}px monospace`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            const padding = 10 * (canvas.width / 600);
+            let yOffset = padding;
+
+            ctx.fillText(`GameState: ${gameState}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`keys['a']: ${keys['a'] || false}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`keys['d']: ${keys['d'] || false}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`keys['w']: ${keys['w'] || false}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`keys['s']: ${keys['s'] || false}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`onGround: ${onGround}`, padding, yOffset);
+            yOffset += 20 * (canvas.width / 600);
+            ctx.fillText(`manualMode: ${manualModeCheckbox.checked}`, padding, yOffset); // Add manual mode status
+
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGround();
+            drawStickman();
+            drawStopwatch();
+            drawCountdownMessage();
+            drawStartMessage();
+            drawDebugInfo(); // Draw debug information
+        }
+
+        function loop() {
+            updateDimensions();
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        document.getElementById('speed').addEventListener('input', function() {
+            document.getElementById('speedValue').textContent = this.value;
+        });
+        document.getElementById('gaitAmplitude').addEventListener('input', function() {
+            document.getElementById('gaitAmplitudeValue').textContent = this.value;
+        });
+        document.getElementById('stepFrequency').addEventListener('input', function() {
+            document.getElementById('stepFrequencyValue').textContent = this.value;
+        });
+        document.getElementById('frontKneeBend').addEventListener('input', function() {
+            document.getElementById('frontKneeBendValue').textContent = this.value;
+        });
+        document.getElementById('backKneeBendMax').addEventListener('input', function() {
+            document.getElementById('backKneeBendMaxValue').textContent = this.value;
+        });
+        document.getElementById('backKneeBendMultiplier').addEventListener('input', function() {
+            document.getElementById('backKneeBendMultiplierValue').textContent = this.value;
+        });
+        document.getElementById('gaitAmplitudeLeft').addEventListener('input', function() {
+            document.getElementById('gaitAmplitudeLeftValue').textContent = this.value;
+        });
+        document.getElementById('stepFrequencyLeft').addEventListener('input', function() {
+            document.getElementById('stepFrequencyLeftValue').textContent = this.value;
+        });
+        document.getElementById('frontKneeBendLeft').addEventListener('input', function() {
+            document.getElementById('frontKneeBendLeftValue').textContent = this.value;
+        });
+        document.getElementById('backKneeBendMaxLeft').addEventListener('input', function() {
+            document.getElementById('backKneeBendMaxLeftValue').textContent = this.value;
+        });
+        document.getElementById('backKneeBendMultiplierLeft').addEventListener('input', function() {
+            document.getElementById('backKneeBendMultiplierLeftValue').textContent = this.value;
+        });
+        document.getElementById('elbowBend').addEventListener('input', function() {
+            document.getElementById('elbowBendValue').textContent = this.value;
+        });
+        document.getElementById('elbowBendLeft').addEventListener('input', function() {
+            document.getElementById('elbowBendLeftValue').textContent = this.value;
+        });
+        document.getElementById('torsoThickness').addEventListener('input', function() {
+            document.getElementById('torsoThicknessValue').textContent = this.value;
+        });
+        document.getElementById('torsoThicknessLeft').addEventListener('input', function() {
+            document.getElementById('torsoThicknessLeftValue').textContent = this.value;
+        });
+        document.getElementById('crouchExtraBend').addEventListener('input', function() {
+            document.getElementById('crouchExtraBendValue').textContent = this.value;
+        });
+        document.getElementById('manualSpeedMultiplier').addEventListener('input', function() {
+            document.getElementById('manualSpeedMultiplierValue').textContent = this.value;
+        });
+        document.getElementById('tapCurveExponent').addEventListener('input', function() {
+            document.getElementById('tapCurveExponentValue').textContent = this.value;
+        });
+        document.getElementById('armSwingMultiplier').addEventListener('input', function() {
+            document.getElementById('armSwingMultiplierValue').textContent = this.value;
+        });
+        document.getElementById('armSwingMultiplierLeft').addEventListener('input', function() {
+            document.getElementById('armSwingMultiplierLeftValue').textContent = this.value;
         });
 
-        // Start the loop (initialize a sample race for demo)
-        initializeRace(1, 400);
-        requestAnimationFrame(gameLoop);
+        // Initialize y position after all constants are defined
+        resetGame(); // Call resetGame to ensure y is correctly initialized at start
+
+        loop();
     </script>
 </body>
 </html>
