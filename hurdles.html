@@ -449,8 +449,9 @@
             let currentRightSpeed = 0; // Calculated speed from right taps
 
             // Game State variables
-            let gameState = 'idle'; // 'idle', 'countdown', 'running'
+            let gameState = 'idle'; // 'idle', 'countdown', 'running', 'finished'
             let startTime = 0; // Timestamp when the game starts running
+            let finalTime = 0; // Stores the time when the race finishes
             let animationFrameId; // To store the requestAnimationFrame ID for cancellation
 
             // Countdown message variables for canvas drawing
@@ -470,20 +471,56 @@
             const hurdleInterval = 9;
             const numberOfHurdles = 9; // 1 original + 8 more
 
+            // New variables for tracking cleared hurdles
+            let hurdlesClearedCount = 0;
+            let lastHurdleIndexPassed = -1; // Index of the last hurdle the stickman successfully passed
+            let hurdle3Cleared = false; // Flag for hurdle 3
+            let hurdle4Cleared = false; // Flag for hurdle 4
+
+
+            // Top 3 Times storage
+            let highScores = [];
+            const MAX_HIGH_SCORES = 3;
+            const HIGHSCORE_STORAGE_KEY = 'stickmanHighScores';
+
             // Tone.js setup for sound effects
             const mainSynth = new Tone.Synth().toDestination().set({ volume: -10 }); // For beeps
-            const hurdleSynth = new Tone.MembraneSynth().toDestination(); // For hurdle hit
+            
+            // Original hurdle collision sound
+            const hurdleSynth = new Tone.MembraneSynth().toDestination();
             hurdleSynth.volume.value = 0; // Set hurdle synth volume to 0dB (full volume)
 
-            // Crowd cheering setup - Using Tone.Player for MP3 file
-            // IMPORTANT: Replace this URL with the actual raw URL of your MP3 file hosted on GitHub.
-            // Example: 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/applause-sound-effect-240470.mp3'
-            const crowdPlayer = new Tone.Player({
-                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/applause-sound-effect-240470.mp3', // Placeholder: Update this with your actual GitHub raw MP3 URL
-                loop: true,
-                autostart: false, // Don't autostart, we'll control it manually
-                volume: -Infinity // Start muted
+            // New Tone.Player for the "aww" sound effect
+            const awwPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/aww-8277.mp3',
+                autostart: false,
+                volume: 0 // Default volume, adjust as needed
             }).toDestination();
+
+            // New Tone.Player for the "hell yeah" sound effect
+            const hellYeahPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/hell-yeah-shout-101933.mp3',
+                autostart: false,
+                volume: 0 // Default volume, adjust as needed
+            }).toDestination();
+
+            // New Tone.Player for the "oh yeah" sound effect
+            const ohYeahPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/oh-yeah-96951.mp3',
+                autostart: false,
+                volume: 0 // Default volume, adjust as needed
+            }).toDestination();
+
+            // Crowd cheering setup - Using Tone.Player for MP3 file
+            const crowdPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/applause-sound-effect-240470.mp3',
+                loop: true,
+                autostart: false,
+                volume: -Infinity // Start muted, will be adjusted
+            }).toDestination(); // Ensure it's connected to destination
+
+            // Flag to track if crowd sound is currently active (playing)
+            let isCrowdSoundActive = false;
 
             // Listen for when the crowd sound is loaded
             crowdPlayer.onload = () => {
@@ -491,6 +528,27 @@
             };
             crowdPlayer.onerror = (e) => {
                 console.error("Error loading crowd sound:", e);
+            };
+
+            awwPlayer.onload = () => {
+                console.log("Aww sound loaded successfully!");
+            };
+            awwPlayer.onerror = (e) => {
+                console.error("Error loading aww sound:", e);
+            };
+
+            hellYeahPlayer.onload = () => {
+                console.log("Hell Yeah sound loaded successfully!");
+            };
+            hellYeahPlayer.onerror = (e) => {
+                console.error("Error loading Hell Yeah sound:", e);
+            };
+
+            ohYeahPlayer.onload = () => {
+                console.log("Oh Yeah sound loaded successfully!");
+            };
+            ohYeahPlayer.onerror = (e) => {
+                console.error("Error loading Oh Yeah sound:", e);
             };
 
 
@@ -532,6 +590,7 @@
             // New: Offset for runner's initial position relative to the start line (in meters)
             // This value is calculated to place the runner's center on the '2' marker.
             const initialRunnerOffsetMeters = -0.2; // Negative value to move runner left of the start line
+            const finishLineMeter = 100; // Finish line at 100 meters
 
             // Cloud data - initial positions and parallax factors
             const clouds = [
@@ -601,8 +660,8 @@
                 if (lowerCaseKey === ' ') {
                     if (gameState === 'idle') {
                         startCountdown(); // Start countdown if idle
-                    } else if (gameState === 'running') {
-                        resetGame(); // Reset game if running
+                    } else if (gameState === 'running' || gameState === 'finished') { // Allow reset from running or finished
+                        resetGame(); // Reset game if running or finished
                     }
                 }
 
@@ -701,11 +760,36 @@
                 return performance.now() + 3000 + Math.random() * 2000; // Blink every 3-5 seconds
             }
 
+            // Function to load high scores from local storage
+            function loadHighScores() {
+                const storedScores = localStorage.getItem(HIGHSCORE_STORAGE_KEY);
+                highScores = storedScores ? JSON.parse(storedScores) : [];
+                // Ensure scores are sorted and trimmed to MAX_HIGH_SCORES
+                highScores.sort((a, b) => a - b);
+                highScores = highScores.slice(0, MAX_HIGH_SCORES);
+            }
+
+            // Function to save high scores to local storage
+            function saveHighScores() {
+                localStorage.setItem(HIGHSCORE_STORAGE_KEY, JSON.stringify(highScores));
+            }
+
+            // Function to add a new score to high scores
+            function addScore(newScore) {
+                highScores.push(newScore);
+                highScores.sort((a, b) => a - b); // Sort ascending
+                highScores = highScores.slice(0, MAX_HIGH_SCORES); // Keep only top MAX_HIGH_SCORES
+                saveHighScores();
+            }
+
             // Main update function for animation logic
             function update() {
                 const now = performance.now(); // Get current time once per update
 
-                // Handle speed penalty
+                // Declare stickmanBottomY here so it's accessible throughout update()
+                let stickmanBottomY = 0; // Initialize to 0 as a default
+
+                // Handle speed penalty (applies regardless of game state if active)
                 let effectiveSpeedMultiplier = 1;
                 if (speedPenaltyActive && now < speedPenaltyEndTime) {
                     effectiveSpeedMultiplier = 0.5; // 50% speed drop
@@ -713,183 +797,264 @@
                     speedPenaltyActive = false; // Penalty duration over
                 }
 
-                // Only update stickman position and animation if game is running
-                if (gameState === 'running') {
-                    let desiredVx = 0; // Desired horizontal velocity
-                    const manualMode = manualModeCheckbox.checked;
+                let desiredVx = 0; // Desired horizontal velocity
+                const manualMode = manualModeCheckbox.checked;
 
+                // --- Movement Logic (applies whether running or finished, based on input) ---
+                if (gameState === 'running' || gameState === 'finished') { // Only allow movement if game is running or finished
                     if (!manualMode) {
-                        // Automatic movement based on A/D keys
                         if (keys['a']) {
                             desiredVx -= getSpeed();
-                            dir = -1; // Set direction to left
+                            dir = -1;
                         }
                         if (keys['d']) {
                             desiredVx += getSpeed();
-                            dir = 1; // Set direction to right
+                            dir = 1;
                         }
                     } else {
-                        // Manual movement based on Z/X and C/V taps
-                        // Decay manual speed if no taps for a while
                         if (now - lastLeftTapTime > 500) currentLeftSpeed = 0;
                         if (now - lastRightTapTime > 500) currentRightSpeed = 0;
-                        desiredVx = currentRightSpeed - currentLeftSpeed; // Net speed from manual taps
-                        if (desiredVx !== 0) dir = desiredVx > 0 ? 1 : -1; // Set direction based on net speed
-
-                        // Cap desiredVx by the overall speed setting
+                        desiredVx = currentRightSpeed - currentLeftSpeed;
+                        if (desiredVx !== 0) dir = desiredVx > 0 ? 1 : -1;
                         desiredVx = Math.sign(desiredVx) * Math.min(Math.abs(desiredVx), getSpeed());
                     }
+                }
 
-                    // Apply effective speed multiplier (including penalty)
-                    desiredVx *= effectiveSpeedMultiplier;
+                // Apply effective speed multiplier (including penalty)
+                desiredVx *= effectiveSpeedMultiplier;
 
-                    // Calculate current step frequency based on direction
-                    const currentStepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
+                // Calculate current step frequency based on direction
+                const currentStepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
 
-                    // Calculate the maximum allowed velocity based on the stride limit and step frequency
-                    const maxVxForStrideLimit = (currentStepFrequency > 0) ? (MAX_STEPCYCLE_ADVANCE_PER_FRAME / currentStepFrequency) : Infinity;
+                // Calculate the maximum allowed velocity based on the stride limit and step frequency
+                const maxVxForStrideLimit = (currentStepFrequency > 0) ? (MAX_STEPCYCLE_ADVANCE_PER_FRAME / currentStepFrequency) : Infinity;
 
-                    // Apply the velocity cap
-                    let actualVx = desiredVx;
-                    if (Math.abs(desiredVx) > maxVxForStrideLimit) {
-                        actualVx = Math.sign(desiredVx) * maxVxForStrideLimit;
-                    }
+                // Apply the velocity cap
+                let actualVx = desiredVx;
+                if (Math.abs(desiredVx) > maxVxForStrideLimit) {
+                    actualVx = Math.sign(desiredVx) * maxVxForStrideLimit;
+                }
 
-                    position += actualVx; // Update position using the capped velocity
+                // Update position (runner always moves if input is given and game state allows)
+                position += actualVx;
 
-                    isCrouching = keys['s'] && onGround; // Check if crouching (S key pressed and on ground)
-
-                    // Always apply gravity
+                // Crouching, Jumping, Gravity (always applies if game is running or finished)
+                if (gameState === 'running' || gameState === 'finished') {
+                    isCrouching = keys['s'] && onGround;
                     vy += 0.6;
-                    y += vy; // Always update y based on vertical velocity
+                    y += vy;
 
-                    // Calculate max leg height for collision detection
-                    const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
-                    const stickmanBottomY = y + maxLegHeight * (canvas.height / 400);
+                    // Scale leg and foot lengths for consistent physics calculations
+                    const scaledUpperLegLen = upperLegLen * (canvas.height / 400);
+                    const scaledLowerLegLen = lowerLegLen * (canvas.height / 400);
+                    const scaledFootRadius = footRadius * (canvas.height / 400);
 
-                    // Check for collision with the ground
+                    // Assign stickmanBottomY here using scaled values
+                    stickmanBottomY = y + scaledUpperLegLen + scaledLowerLegLen + scaledFootRadius;
+                    
                     if (stickmanBottomY >= stickmanGroundY) {
-                        y = stickmanGroundY - maxLegHeight * (canvas.height / 400); // Snap to ground
-                        vy = 0; // Stop vertical movement
-                        onGround = true; // Set on ground flag
-                        isHurling = false; // Reset hurdling state when landing
+                        // Corrected calculation for y using scaled values
+                        y = stickmanGroundY - (scaledUpperLegLen + scaledLowerLegLen + scaledFootRadius);
+                        vy = 0;
+                        onGround = true;
+                        isHurling = false;
                     } else {
-                        // If stickman is above the ground, he is not on the ground
                         onGround = false;
                     }
 
-                    // Hurdle collision detection
-                    hurdles.forEach(hurdle => {
-                        const hurdleCenterGlobalX = hurdle.meterPosition * pixelsPerMeter;
-                        const hurdleRenderX = hurdleCenterGlobalX - position + (canvas.width / 2);
-
-                        // Lane 2 boundaries (where the hurdles are always located)
-                        const lane2TopY = groundY + (stickmanLane - 1) * laneHeight; // Line 2
-                        const lane2BottomY = groundY + stickmanLane * laneHeight;   // Line 3
-
-                        const uprightHurdleHeight = 40 * (canvas.height / 400);
-                        const hurdleVisualWidthAcrossLane = laneHeight;
-
-                        // Hurdle's bounding box for collision (when upright, it's in Lane 2)
-                        // The hurdle's base is at lane2BottomY (Line 3), extending upwards into Lane 2
-                        const hurdleCollisionTop = lane2BottomY - uprightHurdleHeight;
-                        const hurdleCollisionBottom = lane2BottomY;
-
-                        const hurdleCollisionLeft = hurdleRenderX - hurdleVisualWidthAcrossLane / 2;
-                        const hurdleCollisionRight = hurdleRenderX + hurdleVisualWidthAcrossLane / 2;
-
-                        // Stickman bounding box (simplified for collision)
-                        const stickmanBodyWidth = 10 * (canvas.width / 600);
-                        const stickmanLeftX = canvas.width / 2 - stickmanBodyWidth / 2;
-                        const stickmanRightX = canvas.width / 2 + stickmanBodyWidth / 2;
-                        const stickmanHeadY = y - (10 + 5) * (canvas.height / 400);
-                        const stickmanFootY = stickmanBottomY;
-
-                        // Check for overlap and if hurdle is not already fallen
-                        const horizontalOverlap = (stickmanRightX > hurdleCollisionLeft && stickmanLeftX < hurdleCollisionRight);
-                        const verticalOverlap = (stickmanFootY > hurdleCollisionTop && stickmanHeadY < hurdleCollisionBottom);
-
-                        // Collision only if stickman is in Lane 2 and hurdle is upright and in Lane 2
-                        if (horizontalOverlap && verticalOverlap && gameState === 'running' && !isHurling && !hurdle.isFallen) {
-                            hurdle.isFallen = true;
-                            speedPenaltyActive = true;
-                            speedPenaltyEndTime = now + 1000; // 1 second penalty
-                            console.log("Hurdle hit! Playing sound."); // Debugging log
-                            // Use the dedicated hurdleSynth for the collision sound
-                            hurdleSynth.triggerAttackRelease('C3', '0.1', Tone.now(), 1.0); // A slightly higher frequency, shorter duration, full velocity
-                        }
-                    });
-
-                    // Update crowd cheering volume
-                    const stickmanGlobalMeterPosition = position / pixelsPerMeter;
-                    const finishLineMeter = 100;
-                    const cheeringStartMeter = 0; // Start cheering from the beginning
-                    const cheeringZoneLength = finishLineMeter - cheeringStartMeter;
-
-                    // Calculate volume based on progress towards finish line
-                    let currentVolume;
-                    if (stickmanGlobalMeterPosition < 50) { // Quieter for the first half
-                        currentVolume = -40; // Very subtle
-                    } else if (stickmanGlobalMeterPosition >= 50 && stickmanGlobalMeterPosition < 80) { // Moderate for mid-race
-                        currentVolume = -30;
-                    } else if (stickmanGlobalMeterPosition >= 80 && stickmanGlobalMeterPosition <= finishLineMeter) {
-                        const progressInFinalZone = (stickmanGlobalMeterPosition - 80) / (finishLineMeter - 80);
-                        const minFinalVolume = -20; // Start getting louder here
-                        const maxFinalVolume = -5; // Max volume at finish line
-                        currentVolume = minFinalVolume + (maxFinalVolume - minFinalVolume) * progressInFinalZone;
-                    } else { // After crossing finish line
-                        currentVolume = -5; // Stay loud briefly
+                    if (isHurling) {
+                        isCrouching = false;
                     }
-                    crowdPlayer.volume.value = currentVolume;
 
-
-                    // Handle jumping (W key pressed and onGround)
                     if (keys['w'] && onGround) {
-                        vy = -10; // Reduced upward velocity for jump
-                        onGround = false; // Stickman is now in the air
-                        // If a directional key is also pressed, activate hurdle pose
+                        vy = -10;
+                        onGround = false;
                         if (keys['a'] || keys['d']) {
                             isHurling = true;
                         }
-                    }
-
-                    // If currently hurdling, ensure crouching is false (they are mutually exclusive poses)
-                    if (isHurling) {
-                        isCrouching = false;
                     }
 
                     // Advance step cycle only if moving on ground
                     if (onGround && actualVx !== 0) {
                         const desiredStepAdvance = Math.abs(actualVx) * currentStepFrequency;
                         stepCycle += desiredStepAdvance;
+                    } else if (!onGround) {
+                        // Keep step cycle from advancing when in air, but don't reset it to 0
+                    } else { // On ground but not moving
+                        stepCycle = 0; // Reset step cycle for idle pose
+                    }
+                }
+
+
+                // --- Game State Specific Logic ---
+                // Declare stickmanGlobalMeterPosition once here
+                const stickmanGlobalMeterPosition = position / pixelsPerMeter;
+
+                if (gameState === 'running') {
+                    // Hurdle cleared/collision detection (only when running)
+                    hurdles.forEach((hurdle, index) => {
+                        const hurdleCenterGlobalX = hurdle.meterPosition * pixelsPerMeter;
+                        const hurdleRenderX = hurdleCenterGlobalX - position + (canvas.width / 2);
+
+                        const lane2TopY = groundY + (stickmanLane - 1) * laneHeight;
+                        const lane2BottomY = groundY + stickmanLane * laneHeight;
+
+                        const uprightHurdleHeight = 40 * (canvas.height / 400);
+                        const hurdleVisualWidthAcrossLane = laneHeight;
+
+                        const hurdleCollisionTop = lane2BottomY - uprightHurdleHeight;
+                        const hurdleCollisionBottom = lane2BottomY;
+
+                        const hurdleCollisionLeft = hurdleRenderX - hurdleVisualWidthAcrossLane / 2;
+                        const hurdleCollisionRight = hurdleRenderX + hurdleVisualWidthAcrossLane / 2;
+
+                        const stickmanBodyWidth = 10 * (canvas.width / 600);
+                        const stickmanLeftX = canvas.width / 2 - stickmanBodyWidth / 2;
+                        const stickmanRightX = canvas.width / 2 + stickmanBodyWidth / 2;
+                        const stickmanHeadY = y - (10 + 5) * (canvas.height / 400);
+                        const stickmanFootY = stickmanBottomY;
+
+                        const horizontalOverlap = (stickmanRightX > hurdleCollisionLeft && stickmanLeftX < hurdleCollisionRight);
+                        const verticalOverlap = (stickmanFootY > hurdleCollisionTop && stickmanHeadY < hurdleCollisionBottom);
+
+                        // Check for collision
+                        if (horizontalOverlap && verticalOverlap && !isHurling && !hurdle.isFallen) {
+                            hurdle.isFallen = true;
+                            speedPenaltyActive = true;
+                            speedPenaltyEndTime = now + 1000;
+                            console.log("Hurdle hit! Playing aww sound and collision sound.");
+                            if (awwPlayer.loaded) {
+                                awwPlayer.start(); // Play the "aww" sound
+                            } else {
+                                console.warn("Aww sound not loaded yet.");
+                            }
+                            hurdleSynth.triggerAttackRelease('C3', '0.1', Tone.now(), 1.0); // Play original collision sound
+                            hurdlesClearedCount = 0; // Reset count on hit
+                            console.log('Hurdle was hit, hurdlesClearedCount reset to 0.');
+                        }
+
+                        // Check for successful clear (if stickman has passed the hurdle and it's not fallen)
+                        // This condition ensures we only count a hurdle once and only if it wasn't hit
+                        if (stickmanGlobalMeterPosition * pixelsPerMeter > hurdleCenterGlobalX + (hurdleVisualWidthAcrossLane / 2) && index > lastHurdleIndexPassed) {
+                            if (!hurdle.isFallen) {
+                                hurdlesClearedCount++;
+                                console.log('Hurdle successfully cleared! Current hurdlesClearedCount:', hurdlesClearedCount);
+
+                                // Play "oh yeah" for hurdle 3 (index 2) or hurdle 4 (index 3)
+                                if (index === 2 && !hurdle3Cleared) { // Hurdle 3 is at index 2
+                                    if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        ohYeahPlayer.start();
+                                        console.log("Played 'Oh Yeah!' sound for hurdle 3.");
+                                    } else {
+                                        console.warn("'Oh Yeah!' sound not loaded or audio context not running for hurdle 3.");
+                                    }
+                                    hurdle3Cleared = true; // Mark as played
+                                } else if (index === 3 && !hurdle4Cleared) { // Hurdle 4 is at index 3
+                                    if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        ohYeahPlayer.start();
+                                        console.log("Played 'Oh Yeah!' sound for hurdle 4.");
+                                    } else {
+                                        console.warn("'Oh Yeah!' sound not loaded or audio context not running for hurdle 4.");
+                                    }
+                                    hurdle4Cleared = true; // Mark as played
+                                }
+                            }
+                            lastHurdleIndexPassed = index; // Update the last passed hurdle index
+                            
+                            // Check for 8 cleared hurdles
+                            if (hurdlesClearedCount >= 8) {
+                                if (hellYeahPlayer.loaded && Tone.context.state === 'running') {
+                                    hellYeahPlayer.start();
+                                    console.log("Played 'Hell Yeah!' sound for 8 clears.");
+                                } else {
+                                    console.warn("'Hell Yeah!' sound not loaded or audio context not running.");
+                                }
+                                hurdlesClearedCount = 0; // Reset after playing to prevent repeated playback
+                                console.log("hurdlesClearedCount reset to 0 after playing 'Hell Yeah!'.");
+                            }
+                        }
+                    });
+
+                    // Finish line detection
+                    if (stickmanGlobalMeterPosition >= finishLineMeter) {
+                        gameState = 'finished';
+                        finalTime = now - startTime; // Record final time
+                        addScore(finalTime); // Add to high scores
+                        console.log("Race finished! Final Time:", formatTime(finalTime));
                     }
 
-                } else {
+                    // Crowd sound logic: Start at 60m
+                    if (stickmanGlobalMeterPosition >= 60) {
+                        if (!isCrowdSoundActive && crowdPlayer.loaded && Tone.context.state === 'running') {
+                            crowdPlayer.volume.value = -5; // Set to audible level
+                            crowdPlayer.start();
+                            isCrowdSoundActive = true;
+                            console.log("Crowd player STARTED at 60m mark. Volume:", crowdPlayer.volume.value);
+                        } else if (isCrowdSoundActive) {
+                            // Once active, maintain volume
+                            crowdPlayer.volume.value = -5;
+                        }
+                    } else {
+                        // Before 60m, ensure crowd is stopped and muted
+                        if (isCrowdSoundActive) {
+                            try {
+                                crowdPlayer.stop();
+                                isCrowdSoundActive = false;
+                                console.log("Crowd player STOPPED (before 60m mark).");
+                            } catch (e) {
+                                console.error("Error stopping crowd player before 60m:", e);
+                            }
+                        }
+                        crowdPlayer.volume.value = -Infinity; // Ensure muted
+                    }
+
+
+                } else if (gameState === 'finished') {
+                    // Runner continues to move, so no special "stop" logic here for runner movement.
+                    // Keep cheering loud after finishing.
+                    crowdPlayer.volume.value = -5; // Full volume for cheering
+                    if (!isCrowdSoundActive && crowdPlayer.loaded && Tone.context.state === 'running') {
+                        try {
+                            crowdPlayer.start();
+                            isCrowdSoundActive = true;
+                            console.log("Crowd player STARTED in FINISHED state. Volume:", crowdPlayer.volume.value);
+                        } catch (e) {
+                            console.error("Error starting crowd player in FINISHED state:", e);
+                        }
+                    }
+
+
+                } else { // Idle or countdown
                     // If not running, ensure stickman is idle
-                    stepCycle = 0; // Reset step cycle for idle pose
-                    isCrouching = false; // Not crouching when idle
-                    isHurling = false; // Not hurdling when idle
-                    // Keep stickman on ground when idle
+                    stepCycle = 0;
+                    isCrouching = false;
+                    isHurling = false;
                     const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
                     y = stickmanGroundY - maxLegHeight * (canvas.height / 400);
                     vy = 0;
                     onGround = true;
 
-                    // Stop crowd sound when not running
-                    if (crowdPlayer.isPlaying) {
-                        crowdPlayer.stop();
+                    // Stop crowd sound when not running or finished
+                    if (isCrowdSoundActive) { // Only stop if it was active
+                        try {
+                            crowdPlayer.stop();
+                            isCrowdSoundActive = false; // Set flag to false
+                            console.log("Crowd player STOPPED in IDLE/COUNTDOWN state.");
+                        } catch (e) {
+                            console.error("Error stopping crowd player:", e);
+                        }
                     }
                     crowdPlayer.volume.value = -Infinity; // Ensure muted
                 }
 
-                // Handle eye blinking animation
+                // Handle eye blinking animation (always active)
                 if (!isBlinking && now > nextBlinkTime) {
                     isBlinking = true;
-                    blinkTimer = now + 150; // Blink duration
+                    blinkTimer = now + 150;
                 }
                 if (isBlinking && now > blinkTimer) {
                     isBlinking = false;
-                    nextBlinkTime = getNextBlinkTime(); // Schedule next blink
+                    nextBlinkTime = getNextBlinkTime();
                 }
             }
 
@@ -909,6 +1074,8 @@
                 if (gameState === 'running') {
                     const elapsedTime = performance.now() - startTime;
                     timeToDisplay = formatTime(elapsedTime);
+                } else if (gameState === 'finished') {
+                    timeToDisplay = formatTime(finalTime); // Display final time if finished
                 }
 
                 ctx.save();
@@ -921,6 +1088,30 @@
                 // Position in the top right corner with some padding, scaled
                 const padding = 10 * (canvas.width / 600);
                 ctx.fillText(timeToDisplay, canvas.width - padding, padding);
+                ctx.restore();
+            }
+
+            // New function to draw high scores on the canvas
+            function drawHighScores() {
+                ctx.save();
+                ctx.fillStyle = 'black';
+                ctx.font = `${16 * (canvas.width / 600)}px 'Fira Code', monospace`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                const padding = 10 * (canvas.width / 600);
+                let yOffset = padding;
+
+                ctx.fillText('Top Times:', padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+
+                if (highScores.length === 0) {
+                    ctx.fillText('N/A', padding, yOffset);
+                } else {
+                    highScores.forEach((score, index) => {
+                        ctx.fillText(`${index + 1}. ${formatTime(score)}`, padding, yOffset);
+                        yOffset += 20 * (canvas.width / 600);
+                    });
+                }
                 ctx.restore();
             }
 
@@ -980,18 +1171,14 @@
                     showCountdownMessage('Set!', 700);
                     setTimeout(() => {
                         showCountdownMessage('Go!', 700);
-                        setTimeout(() => {
+                        setTimeout(async () => { // Made this inner function async
                             gameState = 'running';
                             startTime = performance.now(); // Start stopwatch
                             currentCountdownMessage = ''; // Clear message after "Go!"
                             actionButton.style.display = 'block'; // Show button after countdown
                             actionButton.textContent = 'Reset'; // Change button text to Reset
 
-                            // Start crowd sound here, after game state is running and audio context is confirmed active
-                            if (crowdPlayer.loaded && !crowdPlayer.isPlaying) {
-                                crowdPlayer.start();
-                                console.log("Crowd player started.");
-                            }
+                            // No crowd sound start here, it will be handled in update() based on position
                         }, 700);
                     }, 1000); // Delay before "Set!"
                 }, 1000); // Delay before "Ready!"
@@ -1002,6 +1189,7 @@
                 gameState = 'idle';
                 position = initialRunnerOffsetMeters * pixelsPerMeter; // Set initial position based on offset
                 startTime = 0;
+                finalTime = 0; // Reset final time
                 currentCountdownMessage = ''; // Clear any active countdown message
                 countdownMessageEndTime = 0;
                 keys = {}; // Clear all pressed keys
@@ -1018,6 +1206,12 @@
                     hurdle.isFallen = false;
                 });
 
+                // Reset hurdle cleared count and index
+                hurdlesClearedCount = 0;
+                lastHurdleIndexPassed = -1;
+                hurdle3Cleared = false; // Reset hurdle 3 cleared flag
+                hurdle4Cleared = false; // Reset hurdle 4 cleared flag
+
                 // Ensure stickman is in idle pose at the correct ground level
                 const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
                 y = stickmanGroundY - maxLegHeight * (canvas.height / 400); // Set y for idle pose
@@ -1027,9 +1221,14 @@
                 actionButton.textContent = 'Start'; // Change button text to Start
 
                 // Stop crowd sound when not running
-                if (crowdPlayer.isPlaying) {
-                    crowdPlayer.stop();
-                    console.log("Crowd player stopped.");
+                if (isCrowdSoundActive) { // Only stop if it was active
+                    try {
+                        crowdPlayer.stop();
+                        isCrowdSoundActive = false; // Set flag to false
+                        console.log("Crowd player STOPPED during reset.");
+                    } catch (e) {
+                        console.error("Error stopping crowd player:", e);
+                    }
                 }
                 crowdPlayer.volume.value = -Infinity; // Ensure muted
             }
@@ -1181,8 +1380,8 @@
                     let hurdleRenderX = hurdleCenterGlobalX - position + (canvas.width / 2);
 
                     // Lane 2 boundaries (where the hurdles are always located)
-                    const lane2TopY = groundY + (stickmanLane - 1) * laneHeight; // Line 2
-                    const lane2BottomY = groundY + stickmanLane * laneHeight;   // Line 3
+                    const lane2TopY = groundY + (stickmanLane - 1) * laneHeight;
+                    const lane2BottomY = groundY + stickmanLane * laneHeight;
 
                     if (hurdle.isFallen) {
                         // When fallen, the hurdle lies flat horizontally within Lane 2.
@@ -1277,8 +1476,7 @@
                 ctx.strokeStyle = '#000';
                 ctx.save();
 
-                // Stickman only moves if game is running
-                const moving = gameState === 'running' && ((keys['a'] || keys['d']) || currentLeftSpeed > 0 || currentRightSpeed > 0);
+                const moving = (gameState === 'running' || gameState === 'finished') && ((keys['a'] || keys['d']) || currentLeftSpeed > 0 || currentRightSpeed > 0);
 
                 const gaitAmplitude = (dir === 1) ? parseFloat(document.getElementById('gaitAmplitude').value) : parseFloat(document.getElementById('gaitAmplitudeLeft').value);
                 const stepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
@@ -1294,8 +1492,17 @@
 
                 // Legs
                 const phase = ((stepCycle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-                let legAngles, kneeBends;
+                
+                let currentLegAngles = [0, 0];
+                let currentKneeBends = [0, 0];
+                let currentArmAngles = [0, 0]; // For drawArm
+                let currentElbowBends = [0, 0]; // For drawArm
+                let currentLeftHandTarget = null; // For drawArmToHand
+                let currentRightHandTarget = null; // For drawArmToHand
+                let useDrawArmToHand = false; // Flag to decide which arm drawing function to use
+
                 let crouchDrawOffset = 0; // Initialize offset for drawing
+
 
                 // Get hurdle knee bend values from sliders
                 const hurdleLeadKneeBend = parseFloat(hurdleLeadKneeBendSelect.value);
@@ -1306,8 +1513,8 @@
                     const squatUpperLegAngle = Math.PI / 4; // More outward angle for upper legs
                     const squatKneeBend = 2.0; // Deeper knee bend for squat
 
-                    legAngles = [squatUpperLegAngle, -squatUpperLegAngle]; // Left leg outward, Right leg outward
-                    kneeBends = [squatKneeBend, squatKneeBend]; // Symmetrical deep bend
+                    currentLegAngles = [squatUpperLegAngle, -squatUpperLegAngle]; // Left leg outward, Right leg outward
+                    currentKneeBends = [squatKneeBend, squatKneeBend]; // Symmetrical deep bend
 
                     crouchDrawOffset = crouchExtraBend * 30 * (canvas.height / 400); // Lower the body significantly
                 } else if (isHurling) { // New hurdle pose logic
@@ -1316,19 +1523,19 @@
                     const hurdleTrailLegAngle = Math.PI / 2; // Trail leg bent and raised high
 
                     if (dir === 1) { // Moving right, left leg leads
-                        legAngles = [hurdleLeadLegAngle, hurdleTrailLegAngle];
-                        kneeBends = [hurdleLeadKneeBend, hurdleTrailKneeBend];
+                        currentLegAngles = [hurdleLeadLegAngle, hurdleTrailLegAngle];
+                        currentKneeBends = [hurdleLeadKneeBend, hurdleTrailKneeBend];
                     } else { // Moving left, right leg leads
-                        legAngles = [hurdleTrailLegAngle, hurdleLeadLegAngle];
-                        kneeBends = [hurdleTrailKneeBend, hurdleLeadKneeBend];
+                        currentLegAngles = [hurdleTrailLegAngle, hurdleLeadLegAngle];
+                        currentKneeBends = [hurdleTrailKneeBend, hurdleLeadKneeBend];
                     }
                 }
                 else if (moving && onGround) {
-                    legAngles = [
+                    currentLegAngles = [
                         Math.sin(phase) * gaitAmplitude,
                         Math.sin(phase + Math.PI) * gaitAmplitude
                     ];
-                    kneeBends = legAngles.map(a => {
+                    currentKneeBends = currentLegAngles.map(a => {
                         const isBack = (a < 0);
                         return isBack ? Math.min(backKneeBendMax, -a * backKneeBendMultiplier) : frontKneeBend;
                     });
@@ -1337,20 +1544,17 @@
                     dir = 1;
 
                     // Legs: One forward, one back, both bent
-                    legAngles = [-Math.PI / 8, Math.PI / 8]; // Front leg slightly back, back leg slightly forward
-                    kneeBends = [0.5, 0.5]; // Both knees slightly bent
-
-                    // Arms: Opposite arm to forward leg is forward
-                    // Assuming left leg is slightly back (angle -Math.PI/8), then right arm is forward.
-                    // Assuming right leg is slightly forward (angle Math.PI/8), then left arm is forward.
-                    // This means left arm is forward, right arm is back.
-                    // For dir=1 (facing right), the stickman's left arm is to our left, right arm to our right.
-                    // So, if left leg is back, left arm is back. If right leg is forward, right arm is forward.
-                    // This is consistent with a running start where the lead leg's opposite arm is forward.
+                    currentLegAngles = [-Math.PI / 8, Math.PI / 8]; // Front leg slightly back, back leg slightly forward
+                    currentKneeBends = [0.5, 0.5]; // Both knees slightly bent
+                } else if (gameState === 'finished' || (!moving && gameState === 'running')) { // Normal idle pose for finished state OR stopped mid-race
+                    // Always face right in this pose
+                    dir = 1;
+                    currentLegAngles = [0, 0]; // Legs straight down
+                    currentKneeBends = [0.1, 0.1]; // Slight knee bend for relaxed stance
                 }
-                else {
-                    legAngles = [0, 0];
-                    kneeBends = [0, 0];
+                else { // Default legs (should mostly be covered by above, but as a fallback)
+                    currentLegAngles = [0, 0];
+                    currentKneeBends = [0, 0];
                 }
 
                 // Add slight bobbing when walking on ground, but not when crouching or jumping
@@ -1368,8 +1572,8 @@
                     ctx.translate(-x, 0);
                 }
 
-                // Hip spread only when idle, not when moving or crouching
-                const hipSpread = (!moving && !isCrouching && !isHurling && gameState !== 'idle' && gameState !== 'countdown') ? 3 * (canvas.width / 600) : 0; // Removed idle from hip spread
+                // Hip spread: Apply when not moving, crouching, or hurdling to ensure both legs are visible
+                const hipSpread = (!moving && !isCrouching && !isHurling) ? 3 * (canvas.width / 600) : 0;
 
                 // Apply crouchDrawOffset and bobbingOffset to all y-coordinates for drawing
                 const currentHipY = y + crouchDrawOffset + bobbingOffset;
@@ -1410,7 +1614,7 @@
                 ctx.fill();
                 ctx.strokeStyle = '#000';
                 ctx.stroke();
-                const faceDir = moving ? (flipped ? -dir : dir) : (gameState === 'idle' || gameState === 'countdown' ? 1 : 0); // Face right when idle or countdown
+                const faceDir = moving ? (flipped ? -dir : dir) : (gameState === 'idle' || gameState === 'countdown' || gameState === 'finished' || (!moving && gameState === 'running') ? 1 : 0); // Face right when idle or countdown
                 drawFace(x, neckTopY - 10 * (canvas.height / 400), expressionSelect.value, faceDir);
 
                 // Torso
@@ -1422,10 +1626,10 @@
                 ctx.stroke();
 
                 // Draw legs
-                drawLeg(hipLeft, upperLegLen * (canvas.height / 400), legAngles[0], lowerLegLen * (canvas.height / 400), kneeBends[0]);
-                drawLeg(hipRight, upperLegLen * (canvas.height / 400), legAngles[1], lowerLegLen * (canvas.height / 400), kneeBends[1]);
+                drawLeg(hipLeft, upperLegLen * (canvas.height / 400), currentLegAngles[0], lowerLegLen * (canvas.height / 400), currentKneeBends[0]);
+                drawLeg(hipRight, upperLegLen * (canvas.height / 400), currentLegAngles[1], lowerLegLen * (canvas.height / 400), currentKneeBends[1]);
 
-                // Arms
+                // Determine Arm Poses
                 if (isHurling) { // Specific arm pose for hurdling
                     const hurdleArmForwardAngle = -Math.PI / 8; // Arm forward and slightly down
                     const hurdleArmBackwardAngle = Math.PI / 4; // Arm back and slightly up
@@ -1433,66 +1637,84 @@
                     const hurdleElbowBend = 0.5; // Slight bend in elbows
 
                     if (dir === 1) { // Moving right, left arm forward
-                        drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), hurdleArmForwardAngle, lowerArmLen * (canvas.height / 400), hurdleElbowBend);
-                        drawArm(shoulderRight, upperArmLen * (canvas.height / 400), hurdleArmBackwardAngle, lowerArmLen * (canvas.height / 400), hurdleElbowBend);
+                        currentArmAngles = [hurdleArmForwardAngle, hurdleArmBackwardAngle];
+                        currentElbowBends = [hurdleElbowBend, hurdleElbowBend];
                     } else { // Moving left, right arm forward
-                        drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), hurdleArmBackwardAngle, lowerArmLen * (canvas.height / 400), hurdleElbowBend);
-                        drawArm(shoulderRight, upperArmLen * (canvas.height / 400), hurdleArmForwardAngle, lowerArmLen * (canvas.height / 400), hurdleElbowBend);
+                        currentArmAngles = [hurdleArmBackwardAngle, hurdleArmForwardAngle];
+                        currentElbowBends = [hurdleElbowBend, hurdleElbowBend];
                     }
+                    useDrawArmToHand = false; // Use drawArm
                 }
                 else if (moving && onGround && !isCrouching) { // Arm swing when walking
                     const armPhase = phase + Math.PI;
                     // Multiply arm swing by 'dir' to mirror the swing direction relative to the stickman's body
-                    const armAngles = [
+                    currentArmAngles = [
                         -Math.sin(armPhase) * armSwingMultiplier * dir,
                         -Math.sin(armPhase + Math.PI) * armSwingMultiplier * dir
                     ];
                     // Apply elbowBend directly for constant bend
-                    const bends = [elbowBend, elbowBend];
-
-                    drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), armAngles[0], lowerArmLen * (canvas.height / 400), bends[0]);
-                    drawArm(shoulderRight, upperArmLen * (canvas.height / 400), armAngles[1], lowerArmLen * (canvas.height / 400), bends[1]);
+                    currentElbowBends = [elbowBend, elbowBend];
+                    useDrawArmToHand = false; // Use drawArm
                 } else if (isCrouching) { // Specific arm pose for crouching
                     const crouchArmOffsetForward = 10 * (canvas.width / 600); // How much arms come forward
                     const crouchArmOffsetDown = 15 * (canvas.height / 400); // How much arms go down
 
-                    const leftHandTarget = {
+                    currentLeftHandTarget = {
                         x: shoulderLeft.x - crouchArmOffsetForward * dir, // Adjust based on dir for proper perspective
                         y: shoulderLeft.y + crouchArmOffsetDown
                     };
-                    const rightHandTarget = {
+                    currentRightHandTarget = {
                         x: shoulderRight.x + crouchArmOffsetForward * dir, // Adjust based on dir for proper perspective
                         y: shoulderRight.y + crouchArmOffsetDown
                     };
-                    drawArmToHand(shoulderLeft, leftHandTarget);
-                    drawArmToHand(shoulderRight, rightHandTarget);
+                    useDrawArmToHand = true; // Use drawArmToHand
                 }
-                else if (gameState === 'idle' || gameState === 'countdown') { // New: Ready to run arm pose for idle and countdown
+                else if (gameState === 'idle' || gameState === 'countdown') { // Ready to run arm pose for idle and countdown
                     const readyArmForwardAngle = -Math.PI / 4; // Arm forward and bent
                     const readyArmBackwardAngle = Math.PI / 4; // Arm back and bent
                     const readyElbowBend = 1.0; // Significant elbow bend
 
                     // For dir=1 (facing right), left arm is forward, right arm is back.
-                    drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), readyArmForwardAngle, lowerArmLen * (canvas.height / 400), readyElbowBend);
-                    drawArm(shoulderRight, upperArmLen * (canvas.height / 400), readyArmBackwardAngle, lowerArmLen * (canvas.height / 400), readyElbowBend);
+                    currentArmAngles = [readyArmForwardAngle, readyArmBackwardAngle];
+                    currentElbowBends = [readyElbowBend, readyElbowBend];
+                    useDrawArmToHand = false; // Use drawArm
                 }
-                else { // Default idle or jumping arms
+                else if (gameState === 'finished' || (!moving && gameState === 'running')) { // Normal idle arms (hands on hips) for finished state OR stopped mid-race
                     const idleArmOffsetForward = 5 * (canvas.width / 600); // Slightly forward
-                    // Calculate offset to place hands near hips
                     const hipToShoulderDiffY = currentHipY - shoulder.y;
                     const idleArmOffsetDown = hipToShoulderDiffY * 0.7; // Adjust this multiplier to fine-tune vertical position
-
-                    const leftHandTarget = {
+                    currentLeftHandTarget = {
                         x: shoulderLeft.x - idleArmOffsetForward * dir,
                         y: shoulderLeft.y + idleArmOffsetDown
                     };
-                    const rightHandTarget = {
+                    currentRightHandTarget = {
                         x: shoulderRight.x + idleArmOffsetForward * dir,
                         y: shoulderRight.y + idleArmOffsetDown
                     };
+                    useDrawArmToHand = true; // Use drawArmToHand
+                }
+                else { // Default arms (straight down if no other pose applies)
+                    const idleArmOffsetForward = 0;
+                    const hipToShoulderDiffY = currentHipY - shoulder.y;
+                    const idleArmOffsetDown = hipToShoulderDiffY * 0.7;
+                    currentLeftHandTarget = {
+                        x: shoulderLeft.x - idleArmOffsetForward * dir,
+                        y: shoulderLeft.y + idleArmOffsetDown
+                    };
+                    currentRightHandTarget = {
+                        x: shoulderRight.x + idleArmOffsetForward * dir,
+                        y: shoulderRight.y + idleArmOffsetDown
+                    };
+                    useDrawArmToHand = true;
+                }
 
-                    drawArmToHand(shoulderLeft, leftHandTarget);
-                    drawArmToHand(shoulderRight, rightHandTarget);
+                // Draw arms using the determined parameters
+                if (useDrawArmToHand) {
+                    drawArmToHand(shoulderLeft, currentLeftHandTarget);
+                    drawArmToHand(shoulderRight, currentRightHandTarget);
+                } else {
+                    drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), currentArmAngles[0], lowerArmLen * (canvas.height / 400), currentElbowBends[0]);
+                    drawArm(shoulderRight, upperArmLen * (canvas.height / 400), currentArmAngles[1], lowerArmLen * (canvas.height / 400), currentElbowBends[1]);
                 }
 
                 ctx.restore();
@@ -1648,7 +1870,7 @@
             }
 
             // New function for drawing debug info on canvas
-            function drawDebugInfo() {
+                        function drawDebugInfo() {
                 if (!showUI) return; // Only draw if showUI is true
 
                 ctx.save();
@@ -1680,6 +1902,22 @@
                 ctx.fillText(`Position: ${position.toFixed(2)}`, padding, yOffset); // Add current position
                 yOffset += 20 * (canvas.width / 600);
                 ctx.fillText(`Dir: ${dir}`, padding, yOffset); // Add current direction
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdles Cleared: ${hurdlesClearedCount}`, padding, yOffset); // Add hurdles cleared count
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Last Hurdle Index Passed: ${lastHurdleIndexPassed}`, padding, yOffset); // Add last hurdle index passed
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdle 3 Cleared: ${hurdle3Cleared}`, padding, yOffset); // Add hurdle 3 cleared status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdle 4 Cleared: ${hurdle4Cleared}`, padding, yOffset); // Add hurdle 4 cleared status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Loaded: ${crowdPlayer.loaded}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Playing: ${crowdPlayer.isPlaying}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Volume: ${crowdPlayer.volume.value.toFixed(2)}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`isCrowdSoundActive: ${isCrowdSoundActive}`, padding, yOffset); // New debug for the flag
 
                 ctx.restore();
             }
@@ -1692,6 +1930,7 @@
                 drawStopwatch();
                 drawCountdownMessage();
                 drawDebugInfo(); // Draw debug information
+                drawHighScores(); // Draw high scores
             }
 
             function loop() {
@@ -1784,10 +2023,20 @@
             });
 
             // Action Button Event Listener (for Start/Reset)
-            actionButton.addEventListener('click', () => {
+            actionButton.addEventListener('click', async () => { // Made async to await Tone.context.resume()
+                // IMPORTANT: Resume AudioContext on user gesture for reliable audio playback
+                if (Tone.context.state !== 'running') {
+                    try {
+                        await Tone.context.resume();
+                        console.log("AudioContext resumed by action button click.");
+                    } catch (e) {
+                        console.error("Failed to resume AudioContext on action button click:", e);
+                    }
+                }
+
                 if (gameState === 'idle') {
                     startCountdown();
-                } else if (gameState === 'running') {
+                } else if (gameState === 'running' || gameState === 'finished') {
                     resetGame();
                 }
             });
@@ -1799,11 +2048,14 @@
                 hurdles.push({ meterPosition: meterPosition, lane: lane, isFallen: false });
             }
 
+            // Load high scores on initial load
+            loadHighScores();
+
             // Initialize y position after all constants are defined
             resetGame(); // Call resetGame to ensure y is correctly initialized at start
 
             loop();
         }); // End of DOMContentLoaded listener
-    </script>
+</script>
 </body>
 </html>
