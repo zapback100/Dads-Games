@@ -500,29 +500,6 @@
                 'Go!': 'G4'
             };
 
-            // Flag to ensure Tone.start() is only called once
-            let audioContextStarted = false;
-
-            // Function to activate audio context on user interaction
-            function activateAudio() {
-                if (!audioContextStarted) {
-                    Tone.start().then(() => {
-                        console.log("Tone.js audio context started successfully!");
-                        audioContextStarted = true;
-                    }).catch(e => {
-                        console.error("Error starting Tone.js audio context:", e);
-                    });
-                }
-                // Remove listeners after the first successful activation attempt
-                document.removeEventListener('click', activateAudio);
-                document.removeEventListener('keydown', activateAudio);
-            }
-
-            // Add a listener for any user interaction to activate audio
-            document.addEventListener('click', activateAudio);
-            document.addEventListener('keydown', activateAudio);
-
-
             // Fixed ground line (relative to canvas height)
             const groundYRatio = 300 / 400; // Original ratio for ground position
             let groundY; // Will be calculated based on current canvas height
@@ -738,11 +715,6 @@
 
                 // Only update stickman position and animation if game is running
                 if (gameState === 'running') {
-                    // Start crowd sound only if loaded and not already playing
-                    if (crowdPlayer.loaded && !crowdPlayer.isPlaying) {
-                        crowdPlayer.start();
-                    }
-
                     let desiredVx = 0; // Desired horizontal velocity
                     const manualMode = manualModeCheckbox.checked;
 
@@ -989,9 +961,19 @@
             }
 
             // Function to start the game countdown
-            function startCountdown() {
+            async function startCountdown() { // Made async to await Tone.start()
+                // Ensure audio context is active on user gesture
+                if (Tone.context.state !== 'running') {
+                    try {
+                        await Tone.start();
+                        console.log("AudioContext resumed successfully by startCountdown.");
+                    } catch (e) {
+                        console.error("Failed to resume AudioContext:", e);
+                        // Optionally, show a message to the user that audio couldn't start
+                    }
+                }
+
                 gameState = 'countdown';
-                // position is now set in resetGame()
                 actionButton.style.display = 'none'; // Hide action button during countdown
                 showCountdownMessage('Ready!', 700);
                 setTimeout(() => {
@@ -1004,6 +986,12 @@
                             currentCountdownMessage = ''; // Clear message after "Go!"
                             actionButton.style.display = 'block'; // Show button after countdown
                             actionButton.textContent = 'Reset'; // Change button text to Reset
+
+                            // Start crowd sound here, after game state is running and audio context is confirmed active
+                            if (crowdPlayer.loaded && !crowdPlayer.isPlaying) {
+                                crowdPlayer.start();
+                                console.log("Crowd player started.");
+                            }
                         }, 700);
                     }, 1000); // Delay before "Set!"
                 }, 1000); // Delay before "Ready!"
@@ -1037,6 +1025,13 @@
                 onGround = true;
                 actionButton.style.display = 'block'; // Show action button
                 actionButton.textContent = 'Start'; // Change button text to Start
+
+                // Stop crowd sound when not running
+                if (crowdPlayer.isPlaying) {
+                    crowdPlayer.stop();
+                    console.log("Crowd player stopped.");
+                }
+                crowdPlayer.volume.value = -Infinity; // Ensure muted
             }
 
             // Function to draw clouds with parallax effect
@@ -1812,4 +1807,3 @@
     </script>
 </body>
 </html>
-
