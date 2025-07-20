@@ -1,0 +1,2914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Animation Preview</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js CDN for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        /* Custom styles for the canvas to ensure it scales responsively */
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto; /* Maintain aspect ratio */
+            max-width: 800px; /* Optional: limit max width for very large screens */
+            margin: 0 auto; /* Center the canvas */
+            border: 1px solid #ccc;
+            background: #fff;
+            border-radius: 0.5rem; /* Rounded corners for the canvas */
+        }
+        /* Ensure the body uses Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Styles for the new container wrapping canvas and controls */
+        .canvas-container {
+            position: relative; /* Essential for absolute positioning of controls */
+            width: 100%;
+            max-width: 800px; /* Match canvas max-width */
+            margin: 0 auto; /* Center the container */
+        }
+        /* Styles for the D-pad container */
+        .dpad-controls {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            width: 100px; /* Adjusted size for better usability */
+            height: 100px; /* Adjusted size for better usability */
+            background-color: #333; /* Dark background for the D-pad */
+            border-radius: 50%; /* Circular shape */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            border: 2px solid #222;
+            opacity: 0.5; /* Made transparent */
+        }
+
+        .dpad-button {
+            position: absolute;
+            width: 35px; /* Adjusted size for better usability */
+            height: 35px; /* Adjusted size for better usability */
+            background-color: #555; /* Lighter background for buttons */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 1px solid #444;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+        }
+
+        .dpad-button:active {
+            background-color: #777;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Positioning for individual D-pad buttons */
+        #upBtn { top: 0; transform: translateY(-50%); }
+        #downBtn { bottom: 0; transform: translateY(50%); }
+        #leftBtn { left: 0; transform: translateX(-50%); }
+        #rightBtn { right: 0; transform: translateX(50%); }
+
+        /* Center dot */
+        .dpad-center {
+            width: 25px; /* Adjusted size for better usability */
+            height: 25px; /* Adjusted size for better usability */
+            background-color: #222;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 1; /* Ensure it's behind the buttons */
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+        }
+
+        /* SVG arrow styling and color coding */
+        .arrow-icon {
+            width: 15px; /* Adjusted size for better usability */
+            height: 15px; /* Adjusted size for better usability */
+            fill: white; /* Default fill color for arrows */
+        }
+
+        /* PlayStation-like color coding for arrows */
+        #upBtn .arrow-icon { fill: #4CAF50; /* Green */ }
+        #downBtn .arrow-icon { fill: #F44336; /* Red */ }
+        #leftBtn .arrow-icon { fill: #2196F3; /* Blue */ }
+        #rightBtn .arrow-icon { fill: #E91E63; /* Pink */ }
+
+        /* Styles for diagonal buttons */
+        .dpad-diagonal-button {
+            position: absolute;
+            width: 20px; /* Tiny size */
+            height: 20px; /* Tiny size */
+            background-color: #666; /* Neutral background */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 0.5px solid #555;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+            opacity: 0.5; /* Transparent */
+        }
+
+        .dpad-diagonal-button:active {
+            background-color: #888;
+            box-shadow: inset 0 0.5px 1px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Positioning for diagonal buttons */
+        /* 1:30 o'clock (Up-Right) */
+        #upRightBtn {
+            top: 15%; /* Adjust as needed */
+            right: 15%; /* Adjust as needed */
+            transform: translate(50%, -50%); /* Centering adjustment */
+        }
+        /* 4:30 o'clock (Down-Right) */
+        #downRightBtn {
+            bottom: 15%; /* Adjust as needed */
+            right: 15%; /* Adjust as needed */
+            transform: translate(50%, 50%); /* Centering adjustment */
+        }
+        /* 7:30 o'clock (Down-Left) */
+        #downLeftBtn {
+            bottom: 15%; /* Adjust as needed */
+            left: 15%; /* Adjust as needed */
+            transform: translate(-50%, 50%); /* Centering adjustment */
+        }
+        /* 10:30 o'clock (Up-Left) */
+        #upLeftBtn {
+            top: 15%; /* Adjust as needed */
+            left: 15%; /* Adjust as needed */
+            transform: translate(-50%, -50%); /* Centering adjustment */
+        }
+
+        /* Diagonal button icon (simple dot) */
+        .dpad-diagonal-button .dot-icon {
+            width: 8px; /* Size of the dot */
+            height: 8px;
+            background-color: white; /* White dot */
+            border-radius: 50%;
+        }
+
+        /* New style for the action button (Start/Reset) */
+        #actionButton {
+            position: absolute;
+            top: 10%; /* Adjust vertical position as needed */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100; /* Ensure it's above other elements */
+            padding: 0.75rem 1.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: white;
+            background-color: #4CAF50; /* Green */
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        #actionButton:hover {
+            background-color: #45a049;
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+
+        #actionButton:active {
+            background-color: #3e8e41;
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 200; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex flex-col items-center justify-center p-4 relative">
+    <div class="bg-white p-6 rounded-xl shadow-lg mb-6 w-full max-w-4xl">
+        <p class="text-gray-700 mb-4 text-center text-sm sm:text-base">Press <span class="font-bold text-blue-600">SPACEBAR</span> to start/reset. Use A/D to move left/right, W to jump, S to crouch. On-screen D-pad controls simulate these keys, allowing for simultaneous actions (e.g., holding 'Up' and 'Right' to jump while moving right). Tap <span class="font-bold text-red-600">Q</span> on the <span class="font-bold text-orange-500">orange line</span> for jump power! Tap <span class="font-bold text-blue-600">W</span> on the <span class="font-bold text-gray-800">white line</span> for jump height! For the best jump, you'll need to combine perfect timing on both lines.</p>
+        
+        <!-- Toggle Controls Button -->
+        <div class="flex justify-center mb-4">
+            <button id="toggleControlsBtn" class="bg-gray-600 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Show UI
+            </button>
+        </div>
+
+        <div id="controls" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm sm:text-base" style="display: none;">
+            <div class="flex flex-col space-y-2">
+                <!-- Game Mode Selection -->
+                <div class="flex flex-col">
+                    <strong class="text-gray-800 mb-2">Game Mode:</strong>
+                    <div class="flex space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="gameMode" value="1player" class="form-radio text-blue-600" checked>
+                            <span class="ml-2">1 Player (vs. Computer)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="gameMode" value="2player" class="form-radio text-blue-600">
+                            <span class="ml-2">2 Player</span>
+                        </label>
+                    </div>
+                </div>
+
+                <label for="manualMode" class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="manualMode" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                    <span>Manual Run Mode</span>
+                </label>
+
+                <!-- New Hurdle Visibility Toggle -->
+                <label for="hideHurdles" class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="hideHurdles" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" checked>
+                    <span>Hide All Hurdles</span>
+                </label>
+
+                <!-- New Hurdle Sound Toggle -->
+                <label for="enableHurdleSounds" class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="enableHurdleSounds" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+                    <span>Enable Hurdle Sounds</span>
+                </label>
+
+                <label for="manualSpeedMultiplier" class="flex flex-col">
+                    <span>Manual Speed Multiplier: <span id="manualSpeedMultiplierValue" class="font-semibold">0.5</span></span>
+                    <input type="range" id="manualSpeedMultiplier" min="0.1" max="2" step="0.05" value="0.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="tapCurveExponent" class="flex flex-col">
+                    <span>Tap Curve Exponent: <span id="tapCurveExponentValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="tapCurveExponent" min="0.1" max="1.0" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="speed" class="flex flex-col">
+                    <span>Speed: <span id="speedValue" class="font-semibold">1.7</span></span>
+                    <input type="range" id="speed" min="1" max="3" step="0.05" value="1.7" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="expression" class="flex flex-col">
+                    <span>Expression:</span>
+                    <select id="expression" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                        <option value="neutral" selected>Neutral</option>
+                        <option value="happy">Happy</option>
+                        <option value="sad">Sad</option>
+                        <option value="angry">Angry</option>
+                        <option value="surprised">Surprise</option>
+                        <option value="tired">Tired</option>
+                        <option value="trying">Trying</option>
+                    </select>
+                </label>
+
+                <label for="crouchExtraBend" class="flex flex-col">
+                    <span>Crouch Extra Bend: <span id="crouchExtraBendValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="crouchExtraBend" min="0" max="1.5" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <strong class="mt-4 text-gray-800">Right Direction (dir=1):</strong>
+                <label for="gaitAmplitude" class="flex flex-col">
+                    <span>Gait Amplitude: <span id="gaitAmplitudeValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="gaitAmplitude" min="0" max="2" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="stepFrequency" class="flex flex-col">
+                    <span>Step Frequency: <span id="stepFrequencyValue" class="font-semibold">0.05</span></span>
+                    <input type="range" id="stepFrequency" min="0.05" max="0.2" step="0.01" value="0.05" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+                
+                <label for="armSwingMultiplier" class="flex flex-col">
+                    <span>Arm Swing Multiplier: <span id="armSwingMultiplierValue" class="font-semibold">0.75</span></span>
+                    <input type="range" id="armSwingMultiplier" min="0" max="2" step="0.05" value="0.75" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+            </div>
+
+            <div class="flex flex-col space-y-2">
+                <label for="frontKneeBend" class="flex flex-col">
+                    <span>Front Knee Bend: <span id="frontKneeBendValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="frontKneeBend" min="0" max="1" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMax" class="flex flex-col">
+                    <span>Back Knee Bend Max: <span id="backKneeBendMaxValue" class="font-semibold">0.7</span></span>
+                    <input type="range" id="backKneeBendMax" min="0" max="1.5" step="0.05" value="0.7" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMultiplier" class="flex flex-col">
+                    <span>Back Knee Bend Multiplier: <span id="backKneeBendMultiplierValue" class="font-semibold">2.5</span></span>
+                    <input type="range" id="backKneeBendMultiplier" min="1" max="4" step="0.1" value="2.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="elbowBend" class="flex flex-col">
+                    <span>Elbow Bend: <span id="elbowBendValue" class="font-semibold">1.2</span></span>
+                    <input type="range" id="elbowBend" min="0" max="4" step="0.05" value="1.2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="torsoThickness" class="flex flex-col">
+                    <span>Torso Thickness: <span id="torsoThicknessValue" class="font-semibold">2</span></span>
+                    <input type="range" id="torsoThickness" min="1" max="10" step="0.5" value="2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <strong class="mt-4 text-gray-800">Left Direction (dir=-1):</strong>
+                <label for="gaitAmplitudeLeft" class="flex flex-col">
+                    <span>Gait Amplitude Left: <span id="gaitAmplitudeLeftValue" class="font-semibold">0.9</span></span>
+                    <input type="range" id="gaitAmplitudeLeft" min="0" max="2" step="0.05" value="0.9" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="stepFrequencyLeft" class="flex flex-col">
+                    <span>Step Frequency Left: <span id="stepFrequencyLeftValue" class="font-semibold">0.05</span></span>
+                    <input type="range" id="stepFrequencyLeft" min="0.05" max="0.2" step="0.01" value="0.05" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="frontKneeBendLeft" class="flex flex-col">
+                    <span>Front Knee Bend Left: <span id="frontKneeBendLeftValue" class="font-semibold">0.4</span></span>
+                    <input type="range" id="frontKneeBendLeft" min="0" max="1" step="0.05" value="0.4" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMaxLeft" class="flex flex-col">
+                    <span>Back Knee Bend Max Left: <span id="backKneeBendMaxLeftValue" class="font-semibold">0.7</span></span>
+                    <input type="range" id="backKneeBendMaxLeft" min="0" max="1.5" step="0.05" value="0.7" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="backKneeBendMultiplierLeft" class="flex flex-col">
+                    <span>Back Knee Bend Multiplier Left: <span id="backKneeBendMultiplierLeftValue" class="font-semibold">2.5</span></span>
+                    <input type="range" id="backKneeBendMultiplierLeft" min="1" max="4" step="0.1" value="2.5" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="elbowBendLeft" class="flex flex-col">
+                    <span>Elbow Bend Left: <span id="elbowBendLeftValue" class="font-semibold">1.2</span></span>
+                    <input type="range" id="elbowBendLeft" min="0" max="4" step="0.05" value="1.2" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="torsoThicknessLeft" class="flex flex-col">
+                    <span>Torso Thickness Left: <span id="torsoThicknessLeftValue" class="font-semibold">3</span></span>
+                    <input type="range" id="torsoThicknessLeft" min="1" max="10" step="0.5" value="3" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <label for="armSwingMultiplierLeft" class="flex flex-col">
+                    <span>Arm Swing Multiplier Left: <span id="armSwingMultiplierLeftValue" class="font-semibold">1</span></span>
+                    <input type="range" id="armSwingMultiplierLeft" min="0" max="2" step="0.05" value="1" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+
+                <strong class="mt-4 text-gray-800">Hurdle Pose Adjustments:</strong>
+                <label for="hurdleLeadKneeBend" class="flex flex-col">
+                    <span>Hurdle Lead Knee Bend: <span id="hurdleLeadKneeBendValue" class="font-semibold">0.84</span></span>
+                    <input type="range" id="hurdleLeadKneeBend" min="0" max="1.0" step="0.01" value="0.84" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+                <label for="hurdleTrailKneeBend" class="flex flex-col">
+                    <span>Hurdle Trail Knee Bend: <span id="hurdleTrailKneeBendValue" class="font-semibold">0.85</span></span>
+                    <input type="range" id="hurdleTrailKneeBend" min="0.5" max="3.0" step="0.05" value="0.85" class="w-full h-2 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="canvas-container">
+        <canvas id="c" width="600" height="400" class="shadow-xl"></canvas>
+
+        <!-- New Action Button (Start/Reset) -->
+        <button id="actionButton">Start</button>
+
+        <!-- D-pad Controls -->
+        <div class="dpad-controls">
+            <div class="dpad-center"></div>
+            <button id="upBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M7 14l5-5 5 5z"/>
+                </svg>
+            </button>
+            <button id="downBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M7 10l5 5 5-5z"/>
+                </svg>
+            </button>
+            <button id="leftBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M14 7l-5 5 5 5z"/>
+                </svg>
+            </button>
+            <button id="rightBtn" class="dpad-button">
+                <svg class="arrow-icon" viewBox="0 0 24 24">
+                    <path d="M10 7l5 5-5 5z"/>
+                </svg>
+            </button>
+
+            <!-- Diagonal Buttons -->
+            <button id="upRightBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="downRightBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="downLeftBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+            <button id="upLeftBtn" class="dpad-diagonal-button">
+                <div class="dot-icon"></div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal for game results -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4">Game Over!</h2>
+            <p id="modalMessage" class="text-lg mb-4"></p>
+            <button id="playAgainBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Wrap all JavaScript code in a DOMContentLoaded listener
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Get canvas and its 2D rendering context
+            const canvas = document.getElementById('c');
+            const ctx = canvas.getContext('2d');
+
+            // Get control elements from the DOM
+            const speedSelect = document.getElementById('speed');
+            const expressionSelect = document.getElementById('expression');
+            const manualModeCheckbox = document.getElementById('manualMode');
+            const manualSpeedMultiplierSelect = document.getElementById('manualSpeedMultiplier');
+            const tapCurveExponentSelect = document.getElementById('tapCurveExponent'); // New slider
+            // New arm swing sliders
+            const armSwingMultiplierSelect = document.getElementById('armSwingMultiplier');
+            const armSwingMultiplierLeftSelect = document.getElementById('armSwingMultiplierLeft');
+
+            // Hurdle pose sliders
+            const hurdleLeadKneeBendSelect = document.getElementById('hurdleLeadKneeBend');
+            const hurdleTrailKneeBendSelect = document.getElementById('hurdleTrailKneeBend');
+
+            // New: Hurdle visibility checkbox
+            const hideHurdlesCheckbox = document.getElementById('hideHurdles');
+            // New: Hurdle sound toggle
+            const enableHurdleSoundsCheckbox = document.getElementById('enableHurdleSounds');
+
+            // Game Mode Radio Buttons
+            const gameModeRadios = document.querySelectorAll('input[name="gameMode"]');
+
+
+            // D-pad control buttons
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const upBtn = document.getElementById('upBtn');
+            const downBtn = document.getElementById('downBtn');
+
+            // Diagonal buttons
+            const upRightBtn = document.getElementById('upRightBtn');
+            const downRightBtn = document.getElementById('downRightBtn');
+            const downLeftBtn = document.getElementById('downLeftBtn');
+            const upLeftBtn = document.getElementById('upLeftBtn');
+
+            // Get the toggle controls button and the controls div
+            const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+            const controlsDiv = document.getElementById('controls');
+
+            // Get the new action button (Start/Reset)
+            const actionButton = document.getElementById('actionButton');
+
+            // Modal elements
+            const resultModal = document.getElementById('resultModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const closeButton = document.querySelector('.close-button');
+            const playAgainBtn = document.getElementById('playAgainBtn');
+
+            // Animation and game state variables
+            let position = 0; // Horizontal position of the stickman
+            let y; // Vertical position of the stickman's hip (computed each frame)
+            let vy = 0; // Vertical velocity for jumping
+            let horizontalVelocity = 0; // New: Horizontal velocity for the stickman
+            let dir = 1; // Direction of movement (1 for right, -1 for left)
+            let onGround = true; // Flag to check if stickman is on the ground
+            let stepCycle = 0; // Controls the walking animation phase
+            let keys = {}; // Stores the state of pressed keys
+
+            let blinkTimer = 0; // Timer for eye blinking
+            let isBlinking = false; // Flag for current blinking state
+            let nextBlinkTime = getNextBlinkTime(); // When the next blink should occur
+
+            let isCrouching = false; // Flag for crouching state
+            let isHurling = false; // New flag for hurdle pose
+
+            // Variables for manual run mode (Z/X and C/V tapping)
+            let leftTapState = 0; // 0: expect Z, 1: expect X
+            let rightTapState = 0; // 0: expect C, 1: expect V
+            let lastLeftTapTime = 0; // Timestamp of last left tap
+            let lastRightTapTime = 0; // Timestamp of last right tap
+            let currentLeftSpeed = 0; // Calculated speed from left taps
+            let currentRightSpeed = 0; // Calculated speed from right taps
+
+            // Game State variables
+            let gameState = 'idle'; // 'idle', 'countdown', 'running', 'turn_end_paused', 'game_end_paused'
+            let startTime = 0; // Timestamp when the game starts running
+            let finalTime = 0; // Stores the time when the race finishes
+            let animationFrameId; // To store the requestAnimationFrame ID for cancellation
+
+            // Countdown message variables for canvas drawing
+            let currentCountdownMessage = '';
+            let countdownMessageEndTime = 0;
+
+            // Flag to control visibility of debug info and control panel
+            let showUI = false; // Default to hidden
+
+            // Speed penalty variables
+            let speedPenaltyActive = false;
+            let speedPenaltyEndTime = 0;
+
+            // Hurdle data: { meterPosition: number, lane: number, isFallen: boolean }
+            const hurdles = [];
+            const initialHurdleMeter = 9;
+            const hurdleInterval = 9;
+            const numberOfHurdles = 9; // 1 original + 8 more
+
+            // New variables for tracking cleared hurdles
+            let hurdlesClearedCount = 0;
+            let lastHurdleIndexPassed = -1; // Index of the last hurdle the stickman successfully passed
+            let hurdle3Cleared = false; // Flag for hurdle 3
+            let hurdle4Cleared = false; // Flag for hurdle 4
+
+            // New: Flag for hiding hurdles - set to true by default
+            let areHurdlesHidden = true;
+            // New: Flag for enabling hurdle sounds - set to false by default
+            let areHurdleSoundsEnabled = false;
+
+            // Long Jump Pit Constants
+            const longJumpPitStartMeter = 20; // Changed from 50 to 20
+            const longJumpPitLengthMeter = 8;
+            const longJumpPitLanes = [3, 4, 5]; // Lanes 3, 4, and 5
+
+            // Constants for jump lines (Moved to global scope)
+            const firstTakeOffLineOffsetMeter = 0.5; // 0.5 meters from sand pit (white line)
+            const secondTakeOffLineOffsetMeter = 2.0; // 2.0 meters from sand pit (orange line)
+            const whiteLineMeter = longJumpPitStartMeter - firstTakeOffLineOffsetMeter;
+            const orangeLineMeter = longJumpPitStartMeter - secondTakeOffLineOffsetMeter;
+
+            // Long Jump specific variables
+            let jumpMarks = []; // Stores { meterPosition: number, lane: number, distance: number } for each jump mark
+            let lastJumpDistance = 0; // The most recent jump distance
+            let isJumping = false; // Flag to track if stickman is in the air due to a jump
+            let jumpStartedFromTakeOffLine = false; // Flag to check if jump started from the take-off line
+
+            // New variables for jump power mechanic
+            let jumpPower = 0; // Stores the calculated jump power (0 to 1)
+            let qTappedOnLine = false; // True if Q was tapped on the first line
+            let jumpAccuracyDeviation = 0; // Stores the deviation from the perfect Q tap spot
+            let combinedJumpFactor = 0; // New: Combined factor for jump strength
+
+
+            // Top 3 Jump Distances storage
+            let highJumpDistances = [];
+            const MAX_HIGH_SCORES = 3; // Max number of high scores to store
+            const HIGHSCORE_STORAGE_KEY_JUMP = 'stickmanHighJumpDistances'; // New storage key for jump distances
+
+            // Tone.js setup for sound effects
+            const mainSynth = new Tone.Synth().toDestination().set({ volume: -10 }); // For beeps
+            
+            // Original hurdle collision sound
+            const hurdleSynth = new Tone.MembraneSynth().toDestination();
+            hurdleSynth.volume.value = -Infinity; // Set hurdle synth volume to -Infinity (muted) by default
+
+            // New Tone.Player for the "aww" sound effect
+            const awwPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/aww-8277.mp3',
+                autostart: false,
+                volume: -Infinity // Default volume, adjust as needed (muted by default)
+            }).toDestination();
+
+            // New Tone.Player for the "hell yeah" sound effect
+            const hellYeahPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/hell-yeah-shout-101933.mp3',
+                autostart: false,
+                volume: 0 // Default volume, adjust as needed
+            }).toDestination();
+
+            // New Tone.Player for the "oh yeah" sound effect
+            const ohYeahPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/oh-yeah-96951.mp3',
+                autostart: false,
+                volume: 0 // Default volume, adjust as needed
+            }).toDestination();
+
+            // Crowd cheering setup - Using Tone.Player for MP3 file
+            const crowdPlayer = new Tone.Player({
+                url: 'https://raw.githubusercontent.com/zapback100/Dads-Games/main/applause-sound-effect-240470.mp3',
+                loop: true,
+                autostart: false,
+                volume: -Infinity // Start muted, will be adjusted
+            }).toDestination(); // Ensure it's connected to destination
+
+            // Flag to track if crowd sound is currently active (playing)
+            let isCrowdSoundActive = false;
+
+            // Listen for when the crowd sound is loaded
+            crowdPlayer.onload = () => {
+                console.log("Crowd sound loaded successfully!");
+            };
+            crowdPlayer.onerror = (e) => {
+                console.error("Error loading crowd sound:", e);
+            };
+
+            awwPlayer.onload = () => {
+                console.log("Aww sound loaded successfully!");
+            };
+            awwPlayer.onerror = (e) => {
+                console.error("Error loading aww sound:", e);
+            };
+
+            hellYeahPlayer.onload = () => {
+                console.log("Hell Yeah sound loaded successfully!");
+            };
+            hellYeahPlayer.onerror = (e) => {
+                console.error("Error loading Hell Yeah sound:", e);
+            };
+
+            ohYeahPlayer.onload = () => {
+                console.log("Oh Yeah sound loaded successfully!");
+            };
+            ohYeahPlayer.onerror = (e) => {
+                console.error("Error loading Oh Yeah sound:", e);
+            };
+
+
+            const beepFrequencies = {
+                'Ready!': 'C4',
+                'Set!': 'D4',
+                'Go!': 'G4'
+            };
+
+            // Fixed ground line (relative to canvas height)
+            const groundYRatio = 300 / 400; // Original ratio for ground position
+            let groundY; // Will be calculated based on current canvas height
+
+            const numLanes = 8; // Number of running lanes
+            let laneHeight; // Will be calculated dynamically
+            let stickmanLane = 4; // The lane the stickman is in (1-indexed)
+            let stickmanGroundY; // The effective ground Y for the stickman in their lane
+
+            // Leg constants (consistent lengths for walking and crouching)
+            const upperLegLen = 20;
+            const lowerLegLen = 25;
+            const footRadius = 2; // Reverted to original size
+            const footHeight = footRadius * 2; // Equivalent height for collision/positioning (approximate diameter)
+
+            // Arm constants
+            const upperArmLen = 19.36;
+            const lowerArmLen = 19.36;
+
+            // Maximum strides per second
+            const MAX_STRIDES_PER_SECOND = 4;
+            // Calculate the maximum stepCycle advance per frame
+            // A full stride is 2 * Math.PI units of stepCycle.
+            // Assuming 60 frames per second, the max advance per frame is (MAX_STRIDES_PER_SECOND * 2 * Math.PI) / 60.
+            const MAX_STEPCYCLE_ADVANCE_PER_FRAME = (MAX_STRIDES_PER_SECOND * 2 * Math.PI) / 60;
+
+            // Global variable for pixels per meter, updated in updateDimensions
+            let pixelsPerMeter = 50; // Base value, will be scaled
+
+
+            // New: Offset for runner's initial position relative to the start line (in meters)
+            // This value is calculated to place the runner's center on the '2' marker.
+            const initialRunnerOffsetMeters = -0.2; // Negative value to move runner left of the start line
+            const finishLineMeter = 100; // Finish line at 100 meters
+
+            // Cloud data - initial positions and parallax factors
+            const clouds = [
+                { initialX: 100, y: 50, width: 60, height: 30, parallaxFactor: 0.1 },
+                { initialX: 300, y: 80, width: 80, height: 40, parallaxFactor: 0.05 },
+                { initialX: 550, y: 60, width: 70, height: 35, parallaxFactor: 0.08 },
+                { initialX: 700, y: 90, width: 50, height: 25, parallaxFactor: 0.12 }
+            ];
+
+            // Game Mode and Player Variables
+            let gameMode = '1player'; // '1player' or '2player'
+            let players = [];
+            let currentPlayerIndex = 0;
+            let currentJumpNumber = 1;
+            const JUMPS_PER_PLAYER = 3;
+            let computerJumpInProgress = false; // To manage computer's turn
+            let computerStickmanColor = '#8B0000'; // Dark red for computer
+            let playerStickmanColor = '#000000'; // Black for player
+
+            // Pause/Auto-continue variables
+            let waitingForInput = false;
+            let autoContinueTimeoutId = null;
+            const AUTO_CONTINUE_DELAY_MS = 30000; // 30 seconds
+
+            // Function to update dimensions based on current canvas size
+            function updateDimensions() {
+                groundY = canvas.height * groundYRatio; // Calculate ground Y based on canvas height
+                laneHeight = (canvas.height - groundY) / numLanes; // Calculate height of each lane
+                // Calculate stickman's effective ground Y for their lane, centered
+                stickmanGroundY = groundY + (stickmanLane - 1) * laneHeight + laneHeight / 2;
+                pixelsPerMeter = 50 * (canvas.width / 600); // Update scaled pixelsPerMeter based on canvas width
+            }
+
+            // Function to resize canvas
+            function resizeCanvas() {
+                const containerWidth = canvas.parentElement.clientWidth;
+                // Maintain a reasonable aspect ratio, e.g., 3:2
+                const newWidth = Math.min(containerWidth, 800); // Max width of 800px
+                const newHeight = (newWidth / 3) * 2; // 3:2 aspect ratio
+
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                updateDimensions(); // Update dimensions before drawing
+                draw(); // Redraw content after resizing
+            }
+
+            // Initial resize and add event listener for window resize
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Function to simulate keyboard events for mobile controls
+            function simulateKeyEvent(key, type) {
+                const event = new KeyboardEvent(type, {
+                    key: key,
+                    code: key,
+                    bubbles: true,
+                    cancelable: true
+                });
+                document.dispatchEvent(event);
+            }
+
+            // Function to simulate multiple key events for diagonal controls
+            function simulateMultiKeyEvents(keysArray, type) {
+                keysArray.forEach(key => {
+                    const event = new KeyboardEvent(type, {
+                        key: key,
+                        code: key,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    document.dispatchEvent(event);
+                });
+            }
+
+            // Event listener for key presses (keyboard and simulated)
+            document.addEventListener('keydown', e => {
+                const lowerCaseKey = e.key.toLowerCase();
+                keys[lowerCaseKey] = true; // Mark key as pressed
+                // console.log("Keydown:", lowerCaseKey, "Current keys:", { ...keys }); // Debugging log
+
+                // Handle spacebar for game start/reset or continuing from pause
+                if (lowerCaseKey === ' ') {
+                    if (gameState === 'idle') {
+                        startCountdown(); // Start countdown if idle
+                    } else if (gameState === 'running' || gameState === 'finished') { // Allow reset from running or finished
+                        resetGame(); // Reset game if running or finished
+                    } else if (waitingForInput) {
+                        // If waiting for input, clear timeout and proceed
+                        clearTimeout(autoContinueTimeoutId);
+                        autoContinueTimeoutId = null;
+                        waitingForInput = false;
+
+                        if (gameState === 'turn_end_paused') {
+                            // Advance to next turn
+                            gameState = 'running'; // Set to running for the next player
+                            // The advanceTurn() function already handles incrementing player/jump
+                            // and starting computer jump if applicable.
+                            // So, we just need to ensure the game loop continues.
+                            // The next loop iteration will pick up the new player/jump.
+                        } else if (gameState === 'game_end_paused') {
+                            resetGame(); // Reset the entire game
+                        }
+                    }
+                }
+            });
+
+            // Event listener for key releases (keyboard and simulated)
+            document.addEventListener('keyup', e => {
+                const lowerCaseKey = e.key.toLowerCase();
+                keys[lowerCaseKey] = false; // Mark key as released
+                // console.log("Keyup:", lowerCaseKey, "Current keys:", { ...keys }); // Debugging log
+            });
+
+            // Add touch and mouse event listeners for D-pad controls
+            const directionalButtons = [
+                { button: leftBtn, key: 'a' },
+                { button: rightBtn, key: 'd' },
+                { button: upBtn, key: 'w' },
+                { button: downBtn, key: 's' }
+            ];
+
+            directionalButtons.forEach(({ button, key }) => {
+                button.addEventListener('touchstart', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keydown'); });
+                button.addEventListener('touchend', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keyup'); });
+                button.addEventListener('mousedown', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keydown'); });
+                button.addEventListener('mouseup', (e) => { e.preventDefault(); simulateKeyEvent(key, 'keyup'); });
+                button.addEventListener('mouseleave', (e) => {
+                    // Only simulate keyup if the mouse button was still down when leaving the element
+                    if (e.buttons === 1) { simulateKeyEvent(key, 'keyup'); }
+                });
+            });
+
+            // Add touch and mouse event listeners for diagonal buttons
+            const diagonalButtons = [
+                { button: upRightBtn, keys: ['w', 'd'] },
+                { button: downRightBtn, keys: ['d', 's'] },
+                { button: downLeftBtn, keys: ['a', 's'] },
+                { button: upLeftBtn, keys: ['a', 'w'] }
+            ];
+
+            diagonalButtons.forEach(({ button, keys }) => {
+                button.addEventListener('touchstart', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keydown'); });
+                button.addEventListener('touchend', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keyup'); });
+                button.addEventListener('mousedown', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keydown'); });
+                button.addEventListener('mouseup', (e) => { e.preventDefault(); simulateMultiKeyEvents(keys, 'keyup'); });
+                button.addEventListener('mouseleave', (e) => {
+                    // Only simulate keyup if the mouse button was still down when leaving the element
+                    if (e.buttons === 1) { simulateMultiKeyEvents(keys, 'keyup'); }
+                });
+            });
+
+
+            // Function to get the current speed from the slider
+            function getSpeed() {
+                return parseFloat(speedSelect.value);
+            }
+
+            // Function to determine the next blink time for the stickman
+            function getNextBlinkTime() {
+                return performance.now() + 3000 + Math.random() * 2000; // Blink every 3-5 seconds
+            }
+
+            // Function to load high jump distances from local storage
+            function loadHighJumpDistances() {
+                const storedDistances = localStorage.getItem(HIGHSCORE_STORAGE_KEY_JUMP);
+                highJumpDistances = storedDistances ? JSON.parse(storedDistances) : [];
+                // Ensure distances are sorted in descending order (longest first)
+                highJumpDistances.sort((a, b) => b - a);
+                highJumpDistances = highJumpDistances.slice(0, MAX_HIGH_SCORES);
+            }
+
+            // Function to save high jump distances to local storage
+            function saveHighJumpDistances() {
+                localStorage.setItem(HIGHSCORE_STORAGE_KEY_JUMP, JSON.stringify(highJumpDistances));
+            }
+
+            // Function to add a new jump distance to high jump distances
+            function addJumpDistance(newDistance) {
+                highJumpDistances.push(newDistance);
+                highJumpDistances.sort((a, b) => b - a); // Sort descending for distances (longest first)
+                highJumpDistances = highJumpDistances.slice(0, MAX_HIGH_SCORES); // Keep only top MAX_HIGH_SCORES
+                saveHighJumpDistances();
+            }
+
+            // Function to show the modal with a message
+            function showModal(title, message) {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                resultModal.style.display = 'flex'; // Use flex to center
+            }
+
+            // Function to hide the modal
+            function hideModal() {
+                resultModal.style.display = 'none';
+            }
+
+            // Main update function for animation logic
+            function update() {
+                const now = performance.now(); // Get current time once per update
+
+                // If game is paused, do not update movement or animation
+                if (waitingForInput) {
+                    horizontalVelocity = 0; // Stop movement
+                    stepCycle = 0; // Keep stickman in idle pose
+                    isCrouching = false;
+                    isHurling = false;
+                    return; // Skip the rest of the update logic
+                }
+
+                // Declare stickmanBottomY here so it's accessible throughout update()
+                let stickmanBottomY = 0; // Initialize to 0 as a default
+
+                // Handle speed penalty (applies regardless of game state if active)
+                let effectiveSpeedMultiplier = 1;
+                if (speedPenaltyActive && now < speedPenaltyEndTime) {
+                    effectiveSpeedMultiplier = 0.5; // 50% speed drop
+                } else if (speedPenaltyActive && now >= speedPenaltyEndTime) {
+                    speedPenaltyActive = false; // Penalty duration over
+                }
+
+                let desiredVx = 0; // Desired horizontal velocity from input
+                const manualMode = manualModeCheckbox.checked;
+
+                // --- Movement Logic (applies whether running or finished, based on input) ---
+                if (gameState === 'running' || gameState === 'finished') { // Only allow movement if game is running or finished
+                    // Only allow user input if it's the player's turn or 2-player mode
+                    if (!computerJumpInProgress) {
+                        if (!manualMode) {
+                            if (keys['a']) {
+                                desiredVx -= getSpeed();
+                                dir = -1;
+                            }
+                            if (keys['d']) {
+                                desiredVx += getSpeed();
+                                dir = 1;
+                            }
+                        } else {
+                            if (now - lastLeftTapTime > 500) currentLeftSpeed = 0;
+                            if (now - lastRightTapTime > 500) currentRightSpeed = 0;
+                            desiredVx = currentRightSpeed - currentLeftSpeed;
+                            if (desiredVx !== 0) dir = desiredVx > 0 ? 1 : -1;
+                            desiredVx = Math.sign(desiredVx) * Math.min(Math.abs(desiredVx), getSpeed());
+                        }
+                    } else { // Computer's turn, no direct user input for movement
+                        // Computer movement will be handled by simulateComputerJump
+                        // For now, if computer is jumping, set desiredVx to its simulated speed
+                        // This part might need adjustment depending on how computer movement is simulated
+                        desiredVx = getSpeed(); // Simple: computer moves at max speed
+                        dir = 1; // Computer always moves right
+                    }
+                }
+
+                // Apply effective speed multiplier
+                desiredVx *= effectiveSpeedMultiplier;
+
+                // Calculate current step frequency based on direction
+                const currentStepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
+
+                // Calculate the maximum allowed velocity based on the stride limit
+                const maxVxForStrideLimit = (currentStepFrequency > 0) ? (MAX_STEPCYCLE_ADVANCE_PER_FRAME / currentStepFrequency) : Infinity;
+
+                // Apply the velocity cap to desiredVx
+                let inputDrivenVx = desiredVx;
+                if (Math.abs(desiredVx) > maxVxForStrideLimit) {
+                    inputDrivenVx = Math.sign(desiredVx) * maxVxForStrideLimit;
+                }
+
+                // Update horizontalVelocity
+                if (onGround) {
+                    horizontalVelocity = inputDrivenVx; // On ground, velocity is directly controlled by input
+                } else {
+                    // In air:
+                    // If directional keys are pressed, try to steer/control horizontal velocity
+                    if (keys['a'] || keys['d']) {
+                        horizontalVelocity = inputDrivenVx; // Set to input-driven speed
+                    } else {
+                        // horizontalVelocity persists from takeoff unless air control is applied
+                        // No change needed here if we want to maintain speed.
+                        // If we wanted to slow down in air, we'd add drag or decay.
+                    }
+                }
+
+                // Crouching, Jumping, Gravity (always applies if game is running or finished)
+                const stickmanGlobalMeterPosition = position / pixelsPerMeter;
+                
+                // --- Q key for Jump Power (Orange Line) ---
+                // Only process Q key if it's the player's turn
+                if (keys['q'] && !computerJumpInProgress) {
+                    const hotZoneRadiusQ = 0.5; // meters, Increased hot zone radius
+                    const deviationQ = stickmanGlobalMeterPosition - orangeLineMeter;
+                    
+                    jumpPower = 1 - (Math.abs(deviationQ) / hotZoneRadiusQ);
+                    jumpPower = Math.max(0, Math.min(1, jumpPower)); // Clamped between 0 and 1
+                    
+                    if (jumpPower > 0) {
+                        qTappedOnLine = true;
+                    } else {
+                        qTappedOnLine = false;
+                    }
+                    
+                    console.log(`Q tapped! Jump Power (Orange Line): ${jumpPower.toFixed(2)}, Deviation: ${deviationQ.toFixed(2)}m`);
+                    keys['q'] = false; // Consume the 'q' press immediately
+                }
+
+
+                if (gameState === 'running' || gameState === 'finished') {
+                    isCrouching = keys['s'] && onGround && !computerJumpInProgress; // Only player can crouch
+                    vy += 0.6;
+                    y += vy;
+
+                    // Scale leg and foot lengths for consistent physics calculations
+                    const scaledUpperLegLen = upperLegLen * (canvas.height / 400);
+                    const scaledLowerLegLen = lowerLegLen * (canvas.height / 400);
+                    const scaledFootRadius = footRadius * (canvas.height / 400);
+
+                    // Assign stickmanBottomY here using scaled values
+                    stickmanBottomY = y + scaledUpperLegLen + scaledLowerLegLen + scaledFootRadius;
+                    
+                    if (stickmanBottomY >= stickmanGroundY) {
+                        // Stickman has landed
+                        // Corrected calculation for y using scaled values
+                        y = stickmanGroundY - (scaledUpperLegLen + scaledLowerLegLen + scaledFootRadius);
+                        vy = 0;
+                        onGround = true;
+                        isHurling = false; // Reset hurdling state on landing
+
+                        if (isJumping) { // If a jump just ended
+                            isJumping = false; // Reset jumping flag immediately after detecting landing
+                            
+                            // Corrected logic for checking if landed in sand pit
+                            const sandPitStartMeter = longJumpPitStartMeter;
+                            const sandPitEndMeter = longJumpPitStartMeter + longJumpPitLengthMeter;
+                            const stickmanCurrentGlobalMeterX = position / pixelsPerMeter; // Stickman's center global X in meters
+
+                            const isInSandPitHorizontal = stickmanCurrentGlobalMeterX >= sandPitStartMeter && stickmanCurrentGlobalMeterX <= sandPitEndMeter;
+                            const isInSandPitLane = longJumpPitLanes.includes(stickmanLane);
+                            const landedInSandPit = isInSandPitHorizontal && isInSandPitLane;
+
+                            // Record jump if landed in the sand pit
+                            if (landedInSandPit) {
+                                // Calculate jump distance from the front of the white take-off line
+                                const jumpLandMeterPosition = stickmanCurrentGlobalMeterX; // Use stickman's center for mark position
+                                const calculatedJumpDistance = jumpLandMeterPosition - whiteLineMeter; // Use whiteLineMeter for jump distance calculation
+
+                                // Ensure the distance is positive and within a reasonable range for display
+                                if (calculatedJumpDistance > 0 && calculatedJumpDistance < 15) { // Max reasonable jump distance
+                                    lastJumpDistance = calculatedJumpDistance; // Store for display
+                                    
+                                    // Store jump for current player
+                                    players[currentPlayerIndex].scores.push(calculatedJumpDistance);
+                                    players[currentPlayerIndex].bestJump = Math.max(players[currentPlayerIndex].bestJump, calculatedJumpDistance);
+
+                                    // Store distance with the mark for drawing
+                                    jumpMarks.push({ meterPosition: jumpLandMeterPosition, lane: stickmanLane, distance: calculatedJumpDistance, player: currentPlayerIndex });
+                                    console.log(`${players[currentPlayerIndex].name} Jump Distance: ${calculatedJumpDistance.toFixed(2)}m`);
+                                } else {
+                                    console.log(`${players[currentPlayerIndex].name} Jump landed in pit but distance was invalid: ${calculatedJumpDistance.toFixed(2)}m`);
+                                    players[currentPlayerIndex].scores.push(0); // Record 0 for invalid jump
+                                }
+                            } else {
+                                console.log(`${players[currentPlayerIndex].name} Jump ended outside sand pit or wrong lane.`);
+                                players[currentPlayerIndex].scores.push(0); // Record 0 for out of bounds jump
+                            }
+                            jumpStartedFromTakeOffLine = false; // Reset for next jump
+
+                            // PAUSE after each jump
+                            gameState = 'turn_end_paused';
+                            waitingForInput = true;
+                            autoContinueTimeoutId = setTimeout(() => {
+                                if (waitingForInput) { // Only auto-advance if still waiting
+                                    waitingForInput = false;
+                                    advanceTurn();
+                                }
+                            }, AUTO_CONTINUE_DELAY_MS);
+                        }
+
+                    } else {
+                        onGround = false;
+                    }
+
+                    if (isHurling) {
+                        isCrouching = false;
+                    }
+
+                    // --- W key for Jump (White Line Accuracy) ---
+                    // Only process W key if it's the player's turn
+                    if (keys['w'] && onGround && !computerJumpInProgress) {
+                        const hotZoneRadiusW = 0.5; // meters, Increased hot zone radius
+                        const deviationW = stickmanGlobalMeterPosition - whiteLineMeter;
+                        jumpAccuracyDeviation = deviationW; // Store for drawing debug info
+
+                        let jumpAccuracy = 1 - (Math.abs(deviationW) / hotZoneRadiusW);
+                        jumpAccuracy = Math.max(0, Math.min(1, jumpAccuracy)); // Clamped between 0 and 1
+
+                        // Calculate combined jump factor
+                        // If Q was not tapped on line, jumpPower remains 0, so combinedFactor will be based solely on jumpAccuracy.
+                        // This ensures that if Q is missed, you still get a vertical jump based on W accuracy.
+                        // If Q was tapped, it contributes to the combined factor.
+                        if (qTappedOnLine) {
+                            combinedJumpFactor = (jumpPower + jumpAccuracy) / 2;
+                        } else {
+                            combinedJumpFactor = jumpAccuracy; // If Q wasn't tapped, only W accuracy matters for the jump
+                        }
+                        combinedJumpFactor = Math.max(0, Math.min(1, combinedJumpFactor)); // Ensure it's clamped
+
+                        // Calculate vertical jump strength based on combined factor
+                        const maxVerticalJumpMeters = 1.5; // Max jump height in meters
+                        const targetJumpHeightPixels = maxVerticalJumpMeters * pixelsPerMeter;
+                        const gravity = 0.6; // pixels/frame^2
+                        const vy_for_max_height = Math.sqrt(2 * gravity * targetJumpHeightPixels);
+
+                        // Minimum jump strength (e.g., for a very weak jump)
+                        const minVerticalJumpStrength = Math.sqrt(2 * gravity * (0.1 * pixelsPerMeter)); // Corresponds to 0.1m jump
+
+                        let initialVy = -(minVerticalJumpStrength + combinedJumpFactor * (vy_for_max_height - minVerticalJumpStrength));
+                        vy = initialVy; // Apply negative velocity for upward jump
+
+                        // Calculate horizontal boost based on combined factor
+                        const maxHorizontalJumpMeters = 7.5; // Max horizontal boost in meters
+                        const maxHorizontalBoostPixels = maxHorizontalJumpMeters * pixelsPerMeter;
+                        let initialVxBoost = combinedJumpFactor * maxHorizontalBoostPixels;
+                        
+                        // Apply horizontal boost to the horizontal velocity
+                        horizontalVelocity += initialVxBoost * dir; // Apply boost in current direction
+
+
+                        onGround = false;
+                        isJumping = true;
+                        isHurling = (keys['a'] || keys['d']); // Still allow hurdling pose if moving
+
+                        // Reset Q-related flags after W jump
+                        qTappedOnLine = false;
+                        jumpPower = 0;
+                        // jumpAccuracyDeviation is already set above for display
+
+                        // Determine if the jump started from a valid take-off line for scoring
+                        // A jump is considered valid for scoring if the combined factor is above a threshold.
+                        jumpStartedFromTakeOffLine = combinedJumpFactor > 0.2; // Threshold for a "valid" jump for scoring
+                    }
+
+                    // Advance step cycle only if moving on ground
+                    if (onGround && horizontalVelocity !== 0) { // Changed actualVx to horizontalVelocity
+                        const desiredStepAdvance = Math.abs(horizontalVelocity) * currentStepFrequency; // Changed actualVx to horizontalVelocity
+                        stepCycle += desiredStepAdvance;
+                    } else if (!onGround) {
+                        // Keep step cycle from advancing when in air, but don't reset it to 0
+                    } else { // On ground but not moving
+                        stepCycle = 0; // Reset step cycle for idle pose
+                    }
+                }
+
+                // Update position based on horizontalVelocity
+                position += horizontalVelocity;
+
+
+                // --- Game State Specific Logic ---
+                if (gameState === 'running') {
+                    // Sand Pit Interaction
+                    const sandPitStartMeter = longJumpPitStartMeter;
+                    const sandPitEndMeter = longJumpPitStartMeter + longJumpPitLengthMeter;
+                    const stickmanCurrentGlobalMeterX = position / pixelsPerMeter; // Stickman's center global X in meters
+
+                    const isInSandPitHorizontal = stickmanCurrentGlobalMeterX >= sandPitStartMeter && stickmanCurrentGlobalMeterX <= sandPitEndMeter;
+                    const isInSandPitLane = longJumpPitLanes.includes(stickmanLane);
+
+                    if (isInSandPitHorizontal && isInSandPitLane && onGround && !isHurling) {
+                        // Stickman is in the sand pit, on the ground, and not in a jump pose
+                        effectiveSpeedMultiplier *= 0.2; // Apply a significant slowdown
+                        // You could add a sound effect here for landing in sand
+                    }
+
+
+                    // Hurdle cleared/collision detection (only when running)
+                    if (!areHurdlesHidden) { // Only check for collision if hurdles are visible
+                        hurdles.forEach((hurdle, index) => {
+                            const hurdleCenterGlobalX = hurdle.meterPosition * pixelsPerMeter;
+                            const hurdleRenderX = hurdleCenterGlobalX - position + (canvas.width / 2);
+
+                            // Check if hurdle is within the sand pit's global meter range and in a pit lane
+                            const isHurdleInSandPit = hurdle.meterPosition >= longJumpPitStartMeter &&
+                                                      hurdle.meterPosition <= (longJumpPitStartMeter + longJumpPitLengthMeter) &&
+                                                      longJumpPitLanes.includes(hurdle.lane);
+
+                            if (isHurdleInSandPit) {
+                                return; // Skip collision check if hurdle is in the sand pit and one of the pit lanes
+                            }
+
+                            // Collision only happens if the stickman is in the same lane as the hurdle
+                            if (hurdle.lane !== stickmanLane) {
+                                return; // Skip collision check if hurdle is not in the stickman's lane
+                            }
+
+                            const laneTopY = groundY + (hurdle.lane - 1) * laneHeight;
+                            const laneBottomY = groundY + hurdle.lane * laneHeight;
+
+                            const uprightHurdleHeight = 40 * (canvas.height / 400);
+                            const hurdleVisualWidthAcrossLane = laneHeight;
+
+                            const hurdleCollisionTop = laneBottomY - uprightHurdleHeight;
+                            const hurdleCollisionBottom = laneBottomY;
+
+                            const hurdleCollisionLeft = hurdleRenderX - hurdleVisualWidthAcrossLane / 2;
+                            const hurdleCollisionRight = hurdleRenderX + hurdleVisualWidthAcrossLane / 2;
+
+                            const stickmanBodyWidth = 10 * (canvas.width / 600);
+                            const stickmanLeftX = canvas.width / 2 - stickmanBodyWidth / 2;
+                            const stickmanRightX = canvas.width / 2 + stickmanBodyWidth / 2;
+                            const stickmanHeadY = y - (10 + 5) * (canvas.height / 400);
+                            const stickmanFootY = stickmanBottomY;
+
+                            const horizontalOverlap = (stickmanRightX > hurdleCollisionLeft && stickmanLeftX < hurdleCollisionRight);
+                            const verticalOverlap = (stickmanFootY > hurdleCollisionTop && stickmanHeadY < hurdleCollisionBottom);
+
+                            // Check for collision
+                            if (horizontalOverlap && verticalOverlap && !isHurling && !hurdle.isFallen) {
+                                hurdle.isFallen = true;
+                                speedPenaltyActive = true;
+                                speedPenaltyEndTime = now + 1000;
+                                console.log("Hurdle hit! Playing aww sound and collision sound.");
+                                if (areHurdleSoundsEnabled && awwPlayer.loaded) { // Conditional play
+                                    awwPlayer.start(); // Play the "aww" sound
+                                } else {
+                                    console.warn("Aww sound not loaded or hurdle sounds disabled.");
+                                }
+                                if (areHurdleSoundsEnabled) { // Conditional play
+                                    hurdleSynth.triggerAttackRelease('C3', '0.1', Tone.now(), 1.0); // Play original collision sound
+                                }
+                                hurdlesClearedCount = 0; // Reset count on hit
+                                console.log('Hurdle was hit, hurdlesClearedCount reset to 0.');
+                            }
+
+                            // Check for successful clear (if stickman has passed the hurdle and it's not fallen)
+                            // This condition ensures we only count a hurdle once and only if it wasn't hit
+                            if (stickmanGlobalMeterPosition * pixelsPerMeter > hurdleCenterGlobalX + (hurdleVisualWidthAcrossLane / 2) && index > lastHurdleIndexPassed) {
+                                if (!hurdle.isFallen) {
+                                    hurdlesClearedCount++;
+                                    console.log('Hurdle successfully cleared! Current hurdlesClearedCount:', hurdlesClearedCount);
+
+                                    // Play "oh yeah" for hurdle 3 (index 2) or hurdle 4 (index 3)
+                                    if (areHurdleSoundsEnabled && index === 2 && !hurdle3Cleared) { // Hurdle 3 is at index 2
+                                        if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                            ohYeahPlayer.start();
+                                            console.log("Played 'Oh Yeah!' sound for hurdle 3.");
+                                        } else {
+                                            console.warn("'Oh Yeah!' sound not loaded or audio context not running for hurdle 3.");
+                                        }
+                                        hurdle3Cleared = true; // Mark as played
+                                    } else if (areHurdleSoundsEnabled && index === 3 && !hurdle4Cleared) { // Hurdle 4 is at index 3
+                                        if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                            ohYeahPlayer.start();
+                                            console.log("Played 'Oh Yeah!' sound for hurdle 4.");
+                                        } else {
+                                            console.warn("'Oh Yeah!' sound not loaded or audio context not running for hurdle 4.");
+                                        }
+                                        hurdle4Cleared = true; // Mark as played
+                                    }
+                                }
+                                lastHurdleIndexPassed = index; // Update the last passed hurdle index
+                                
+                                // Check for 8 cleared hurdles
+                                if (hurdlesClearedCount >= 8) {
+                                    if (hellYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        hellYeahPlayer.start();
+                                        console.log("Played 'Hell Yeah!' sound for 8 clears.");
+                                    } else {
+                                        console.warn("'Hell Yeah!' sound not loaded or audio context not running.");
+                                    }
+                                    hurdlesClearedCount = 0; // Reset after playing to prevent repeated playback
+                                    console.log("hurdlesClearedCount reset to 0 after playing 'Hell Yeah!'.");
+                                }
+                            }
+                        });
+                    } else { // If hurdles are hidden, automatically clear them
+                        hurdles.forEach((hurdle, index) => {
+                            const hurdleCenterGlobalX = hurdle.meterPosition * pixelsPerMeter;
+                            const hurdleVisualWidthAcrossLane = laneHeight; // Use this for the "width" of the hurdle for passing detection
+
+                            // Auto-clear only if in the same lane as the hurdle would be
+                            if (hurdle.lane !== stickmanLane) {
+                                return;
+                            }
+
+                            // Check if hurdle is within the sand pit's global meter range and in a pit lane
+                            const isHurdleInSandPit = hurdle.meterPosition >= longJumpPitStartMeter &&
+                                                      hurdle.meterPosition <= (longJumpPitStartMeter + longJumpPitLengthMeter) &&
+                                                      longJumpPitLanes.includes(hurdle.lane);
+
+                            if (isHurdleInSandPit) {
+                                return; // Skip auto-clear if hurdle is in the sand pit and one of the pit lanes
+                            }
+
+                            if (stickmanGlobalMeterPosition * pixelsPerMeter > hurdleCenterGlobalX + (hurdleVisualWidthAcrossLane / 2) && index > lastHurdleIndexPassed) {
+                                hurdlesClearedCount++;
+                                console.log('Hurdle automatically cleared (hidden mode)! Current hurdlesClearedCount:', hurdlesClearedCount);
+                                lastHurdleIndexPassed = index; // Update the last passed hurdle index
+
+                                // Play "oh yeah" for hurdle 3 (index 2) or hurdle 4 (index 3)
+                                if (areHurdleSoundsEnabled && index === 2 && !hurdle3Cleared) {
+                                    if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        ohYeahPlayer.start();
+                                        console.log("Played 'Oh Yeah!' sound for hurdle 3 (hidden mode).");
+                                    }
+                                    hurdle3Cleared = true;
+                                } else if (areHurdleSoundsEnabled && index === 3 && !hurdle4Cleared) {
+                                    if (ohYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        ohYeahPlayer.start();
+                                        console.log("Played 'Oh Yeah!' sound for hurdle 4 (hidden mode).");
+                                    }
+                                    hurdle4Cleared = true;
+                                }
+
+                                if (hurdlesClearedCount >= 8) {
+                                    if (hellYeahPlayer.loaded && Tone.context.state === 'running') {
+                                        hellYeahPlayer.start();
+                                        console.log("Played 'Hell Yeah!' sound for 8 clears (hidden mode).");
+                                    }
+                                    hurdlesClearedCount = 0;
+                                    console.log("hurdlesClearedCount reset to 0 after playing 'Hell Yeah!' (hidden mode).");
+                                }
+                            }
+                        });
+                    }
+
+                    // Finish line detection (remains for general track, but main game end is now jumps)
+                    if (stickmanGlobalMeterPosition >= finishLineMeter) {
+                        // This condition will still be met, but the game state transition will be handled by advanceTurn()
+                        // No need to set gameState to 'finished' here directly, advanceTurn will do it.
+                    }
+
+                    // Crowd sound logic: Start at 60m
+                    if (stickmanGlobalMeterPosition >= 60) {
+                        if (!isCrowdSoundActive && crowdPlayer.loaded && Tone.context.state === 'running') {
+                            crowdPlayer.volume.value = -5; // Set to audible level
+                            crowdPlayer.start();
+                            isCrowdSoundActive = true;
+                            console.log("Crowd player STARTED at 60m mark. Volume:", crowdPlayer.volume.value);
+                        } else if (isCrowdSoundActive) {
+                            // Once active, maintain volume
+                            crowdPlayer.volume.value = -5;
+                        }
+                    } else {
+                        // Before 60m, ensure crowd is stopped and muted
+                        if (isCrowdSoundActive) {
+                            try {
+                                crowdPlayer.stop();
+                                isCrowdSoundActive = false;
+                                console.log("Crowd player STOPPED (before 60m mark).");
+                            } catch (e) {
+                                console.error("Error stopping crowd player before 60m:", e);
+                            }
+                        }
+                        crowdPlayer.volume.value = -Infinity; // Ensure muted
+                    }
+
+
+                } else if (gameState === 'finished') {
+                    // Runner continues to move, so no special "stop" logic here for runner movement.
+                    // Keep cheering loud after finishing.
+                    crowdPlayer.volume.value = -5; // Full volume for cheering
+                    if (!isCrowdSoundActive && crowdPlayer.loaded && Tone.context.state === 'running') {
+                        try {
+                            crowdPlayer.start();
+                            isCrowdSoundActive = true;
+                            console.log("Crowd player STARTED in FINISHED state. Volume:", crowdPlayer.volume.value);
+                        } catch (e) {
+                            console.error("Error starting crowd player in FINISHED state:", e);
+                        }
+                    }
+
+
+                } else { // Idle or countdown
+                    // If not running, ensure stickman is idle
+                    stepCycle = 0;
+                    isCrouching = false;
+                    isHurling = false;
+                    const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
+                    y = stickmanGroundY - maxLegHeight * (canvas.height / 400);
+                    vy = 0;
+                    onGround = true;
+                    horizontalVelocity = 0; // Reset horizontal velocity when idle
+
+                    // Stop crowd sound when not running or finished
+                    if (isCrowdSoundActive) { // Only stop if it was active
+                        try {
+                            crowdPlayer.stop();
+                            isCrowdSoundActive = false; // Set flag to false
+                            console.log("Crowd player STOPPED in IDLE/COUNTDOWN state.");
+                        } catch (e) {
+                            console.error("Error stopping crowd player:", e);
+                        }
+                    }
+                    crowdPlayer.volume.value = -Infinity; // Ensure muted
+                }
+
+                // Handle eye blinking animation (always active)
+                if (!isBlinking && now > nextBlinkTime) {
+                    isBlinking = true;
+                    blinkTimer = now + 150;
+                }
+                if (isBlinking && now > blinkTimer) {
+                    isBlinking = false;
+                    nextBlinkTime = getNextBlinkTime();
+                }
+            }
+
+            // Function to format milliseconds into MM:SS.CC format
+            function formatTime(milliseconds) {
+                const totalSeconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const centiseconds = Math.floor((milliseconds % 1000) / 10);
+
+                return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+            }
+
+            // This function now draws the stopwatch directly on the canvas
+            function drawStopwatch() {
+                let timeToDisplay = '00:00.00';
+                if (gameState === 'running') {
+                    const elapsedTime = performance.now() - startTime;
+                    timeToDisplay = formatTime(elapsedTime);
+                } else if (gameState === 'finished') {
+                    timeToDisplay = formatTime(finalTime); // Display final time if finished
+                }
+
+                ctx.save();
+                ctx.fillStyle = 'black'; // Text color for stopwatch
+                // Scale font size based on canvas width
+                ctx.font = `${24 * (canvas.width / 600)}px 'Fira Code', monospace`;
+                ctx.textAlign = 'right'; // Align text to the right
+                ctx.textBaseline = 'top'; // Align text to the top
+
+                // Position in the top right corner with some padding, scaled
+                const padding = 10 * (canvas.width / 600);
+                ctx.fillText(timeToDisplay, canvas.width - padding, padding);
+                ctx.restore();
+            }
+
+            // New function to draw high jump distances on the canvas (now for current game scores)
+            function drawScores() {
+                ctx.save();
+                ctx.fillStyle = 'black';
+                ctx.font = `${16 * (canvas.width / 600)}px 'Fira Code', monospace`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                const padding = 10 * (canvas.width / 600);
+                let yOffset = padding;
+
+                ctx.fillText(`Jump ${currentJumpNumber} of ${JUMPS_PER_PLAYER}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Current Turn: ${players[currentPlayerIndex].name}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+
+                players.forEach(player => {
+                    ctx.fillText(`${player.name} Best: ${player.bestJump.toFixed(2)}m`, padding, yOffset);
+                    yOffset += 20 * (canvas.width / 600);
+                });
+                ctx.restore();
+            }
+
+            // New function to draw the countdown message on the canvas
+            function drawCountdownMessage() {
+                const now = performance.now();
+                if (currentCountdownMessage && now < countdownMessageEndTime) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Darker text for visibility
+                    // Scale font size
+                    ctx.font = `${60 * (canvas.width / 600)}px Arial Black`; // Large, bold font
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // Calculate opacity for fade-out effect
+                    const fadeDuration = 300; // milliseconds
+                    const remainingTime = countdownMessageEndTime - now;
+                    let opacity = 1;
+                    if (remainingTime < fadeDuration) {
+                        opacity = remainingTime / fadeDuration;
+                    }
+                    ctx.globalAlpha = opacity;
+
+                    ctx.fillText(currentCountdownMessage, canvas.width / 2, canvas.height / 2);
+                    ctx.restore();
+                }
+            }
+
+            // New function to draw pause message
+            function drawPauseMessage() {
+                if (waitingForInput) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.font = `${30 * (canvas.width / 600)}px Arial Black`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Press SPACEBAR to Continue', canvas.width / 2, canvas.height / 2 + 50);
+                    ctx.restore();
+                }
+            }
+
+            // Function to display a countdown message and play a sound
+            function showCountdownMessage(message, duration = 500) {
+                currentCountdownMessage = message;
+                countdownMessageEndTime = performance.now() + duration;
+
+                // Play sound based on the message
+                if (beepFrequencies[message]) {
+                    mainSynth.triggerAttackRelease(beepFrequencies[message], '8n'); // Play the note for an 8th note duration
+                }
+            }
+
+            // Function to start the game countdown
+            async function startCountdown() { // Made async to await Tone.start()
+                // Ensure audio context is active on user gesture
+                if (Tone.context.state !== 'running') {
+                    try {
+                        await Tone.start();
+                        console.log("AudioContext resumed successfully by startCountdown.");
+                    } catch (e) {
+                        console.error("Failed to resume AudioContext:", e);
+                        // Optionally, show a message to the user that audio couldn't start
+                    }
+                }
+
+                gameState = 'countdown';
+                actionButton.style.display = 'none'; // Hide action button during countdown
+                showCountdownMessage('Ready!', 700);
+                setTimeout(() => {
+                    showCountdownMessage('Set!', 700);
+                    setTimeout(() => {
+                        showCountdownMessage('Go!', 700);
+                        setTimeout(async () => { // Made this inner function async
+                            gameState = 'running';
+                            startTime = performance.now(); // Start stopwatch
+                            currentCountdownMessage = ''; // Clear message after "Go!"
+                            actionButton.style.display = 'block'; // Show button after countdown
+                            actionButton.textContent = 'Reset'; // Change button text to Reset
+
+                            // If it's the computer's turn first, simulate its jump
+                            if (gameMode === '1player' && currentPlayerIndex === 1) { // Computer is Player 2 (index 1)
+                                simulateComputerJump();
+                            }
+                        }, 700);
+                    }, 1000); // Delay before "Set!"
+                }, 1000); // Delay before "Ready!"
+            }
+
+            // Function to advance to the next player's turn or next jump
+            function advanceTurn() {
+                // Reset stickman position for next turn
+                position = initialRunnerOffsetMeters * pixelsPerMeter;
+                horizontalVelocity = 0;
+                jumpMarks = []; // Clear jump marks for the new turn
+
+                currentPlayerIndex++;
+                if (currentPlayerIndex >= players.length) {
+                    currentPlayerIndex = 0;
+                    currentJumpNumber++;
+                }
+
+                if (currentJumpNumber > JUMPS_PER_PLAYER) {
+                    gameState = 'finished';
+                    determineWinner();
+                } else {
+                    // If it's the computer's turn, simulate its jump
+                    if (gameMode === '1player' && players[currentPlayerIndex].name === 'Computer') {
+                        simulateComputerJump();
+                    } else {
+                        // If it's the player's turn, resume running state
+                        gameState = 'running';
+                    }
+                }
+            }
+
+            // Function to simulate a computer jump
+            function simulateComputerJump() {
+                computerJumpInProgress = true;
+                // Simulate a reasonable jump for the computer
+                // Randomize Q and W tap timing slightly
+                const qTapDelay = 1000 + Math.random() * 500; // Time to reach orange line
+                const wTapDelay = qTapDelay + 1000 + Math.random() * 500; // Time to reach white line
+
+                // Simulate Q tap
+                setTimeout(() => {
+                    const hotZoneRadiusQ = 0.5;
+                    const idealOrangeLinePosition = orangeLineMeter;
+                    // Computer aims for slightly off-center to make it beatable
+                    const computerDeviationQ = (Math.random() * 0.4 - 0.2); // +/- 0.2m from ideal
+                    const computerTapPositionQ = idealOrangeLinePosition + computerDeviationQ;
+
+                    jumpPower = 1 - (Math.abs(computerDeviationQ) / hotZoneRadiusQ);
+                    jumpPower = Math.max(0, Math.min(1, jumpPower));
+                    qTappedOnLine = true;
+                    console.log(`Computer Q tapped! Jump Power: ${jumpPower.toFixed(2)}`);
+
+                    // Simulate W tap
+                    setTimeout(() => {
+                        const hotZoneRadiusW = 0.5;
+                        const idealWhiteLinePosition = whiteLineMeter;
+                        const computerDeviationW = (Math.random() * 0.4 - 0.2); // +/- 0.2m from ideal
+                        const computerTapPositionW = idealWhiteLinePosition + computerDeviationW;
+
+                        jumpAccuracyDeviation = computerDeviationW;
+                        let jumpAccuracy = 1 - (Math.abs(computerDeviationW) / hotZoneRadiusW);
+                        jumpAccuracy = Math.max(0, Math.min(1, jumpAccuracy));
+
+                        if (qTappedOnLine) {
+                            combinedJumpFactor = (jumpPower + jumpAccuracy) / 2;
+                        } else {
+                            combinedJumpFactor = jumpAccuracy;
+                        }
+                        combinedJumpFactor = Math.max(0, Math.min(1, combinedJumpFactor));
+
+                        const maxVerticalJumpMeters = 1.5;
+                        const targetJumpHeightPixels = maxVerticalJumpMeters * pixelsPerMeter;
+                        const gravity = 0.6;
+                        const vy_for_max_height = Math.sqrt(2 * gravity * targetJumpHeightPixels);
+                        const minVerticalJumpStrength = Math.sqrt(2 * gravity * (0.1 * pixelsPerMeter));
+
+                        vy = -(minVerticalJumpStrength + combinedJumpFactor * (vy_for_max_height - minVerticalJumpStrength));
+
+                        const maxHorizontalJumpMeters = 7.5;
+                        const maxHorizontalBoostPixels = maxHorizontalJumpMeters * pixelsPerMeter;
+                        let initialVxBoost = combinedJumpFactor * maxHorizontalBoostPixels;
+                        horizontalVelocity += initialVxBoost * dir;
+
+                        onGround = false;
+                        isJumping = true;
+                        jumpStartedFromTakeOffLine = combinedJumpFactor > 0.2;
+
+                        computerJumpInProgress = false; // Computer's jump input is done
+                    }, wTapDelay - qTapDelay); // Delay for W tap after Q
+                }, qTapDelay);
+            }
+
+
+            // Function to determine the winner
+            function determineWinner() {
+                let winner = null;
+                let maxBestJump = -1;
+
+                players.forEach(player => {
+                    if (player.bestJump > maxBestJump) {
+                        maxBestJump = player.bestJump;
+                        winner = player;
+                    } else if (player.bestJump === maxBestJump && winner) {
+                        // Tie-breaker: If tied, it's a tie
+                        winner = { name: `${winner.name} & ${player.name}`, bestJump: maxBestJump };
+                    }
+                });
+
+                let message = '';
+                if (gameMode === '1player') {
+                    if (players[0].bestJump > players[1].bestJump) {
+                        message = `You win! Your best jump: ${players[0].bestJump.toFixed(2)}m. Computer's best: ${players[1].bestJump.toFixed(2)}m.`;
+                    } else if (players[1].bestJump > players[0].bestJump) {
+                        message = `Computer wins! Computer's best jump: ${players[1].bestJump.toFixed(2)}m. Your best: ${players[0].bestJump.toFixed(2)}m.`;
+                    } else {
+                        message = `It's a tie! Both you and the Computer jumped ${players[0].bestJump.toFixed(2)}m.`;
+                    }
+                } else { // 2-player mode
+                    if (winner) {
+                        if (winner.name.includes('&')) {
+                            message = `It's a tie! ${winner.name} both jumped ${winner.bestJump.toFixed(2)}m.`;
+                        } else {
+                            message = `${winner.name} wins with a best jump of ${winner.bestJump.toFixed(2)}m!`;
+                        }
+                    } else {
+                        message = "No valid jumps recorded for anyone.";
+                    }
+                }
+                showModal('Game Over!', message);
+                
+                // PAUSE after game ends
+                gameState = 'game_end_paused';
+                waitingForInput = true;
+                autoContinueTimeoutId = setTimeout(() => {
+                    if (waitingForInput) { // Only auto-reset if still waiting
+                        waitingForInput = false;
+                        resetGame();
+                    }
+                }, AUTO_CONTINUE_DELAY_MS);
+            }
+
+
+            // Function to reset the game to its initial idle state
+            function resetGame() {
+                gameState = 'idle';
+                position = initialRunnerOffsetMeters * pixelsPerMeter; // Set initial position based on offset
+                startTime = 0;
+                finalTime = 0; // Reset final time
+                currentCountdownMessage = ''; // Clear any active countdown message
+                countdownMessageEndTime = 0;
+                keys = {}; // Clear all pressed keys
+                currentLeftSpeed = 0; // Reset manual speeds
+                currentRightSpeed = 0;
+                dir = 1; // Reset direction to right
+                stepCycle = 0; // Reset animation cycle
+                isHurling = false; // Reset hurdling state
+                speedPenaltyActive = false; // Reset speed penalty
+                speedPenaltyEndTime = 0;
+                horizontalVelocity = 0; // Reset horizontal velocity
+
+                // Clear any pending auto-continue timeout
+                if (autoContinueTimeoutId) {
+                    clearTimeout(autoContinueTimeoutId);
+                    autoContinueTimeoutId = null;
+                }
+                waitingForInput = false; // Ensure not waiting for input
+
+                // Reset all hurdles to upright
+                hurdles.forEach(hurdle => {
+                    hurdle.isFallen = false;
+                });
+
+                // Reset hurdle cleared count and index
+                hurdlesClearedCount = 0;
+                lastHurdleIndexPassed = -1;
+                hurdle3Cleared = false;
+                hurdle4Cleared = false;
+                // Set checkbox state on reset to match default behavior
+                hideHurdlesCheckbox.checked = true;
+                areHurdlesHidden = true; // Reset hurdle hidden flag to true by default
+                enableHurdleSoundsCheckbox.checked = false; // Reset hurdle sounds to off by default
+                areHurdleSoundsEnabled = false;
+
+                // Reset jump related variables
+                jumpMarks = []; // Clear jump marks
+                lastJumpDistance = 0; // Reset last jump distance
+                isJumping = false; // Reset jumping flag
+                jumpStartedFromTakeOffLine = false; // Reset take-off line flag
+                jumpPower = 0; // Reset jump power
+                qTappedOnLine = false; // Reset Q tapped flag
+                jumpAccuracyDeviation = 0; // Reset jump accuracy deviation
+                combinedJumpFactor = 0; // Reset combined jump factor
+
+                // Reset player data
+                players = [];
+                if (gameMode === '1player') {
+                    players.push({ name: 'Player 1', scores: [], bestJump: 0 });
+                    players.push({ name: 'Computer', scores: [], bestJump: 0 });
+                } else { // 2player
+                    players.push({ name: 'Player 1', scores: [], bestJump: 0 });
+                    players.push({ name: 'Player 2', scores: [], bestJump: 0 });
+                }
+                currentPlayerIndex = 0;
+                currentJumpNumber = 1;
+                computerJumpInProgress = false;
+
+                // Ensure stickman is in idle pose at the correct ground level
+                const maxLegHeight = upperLegLen + lowerLegLen + footRadius;
+                y = stickmanGroundY - maxLegHeight * (canvas.height / 400); // Set y for idle pose
+                vy = 0;
+                onGround = true;
+                actionButton.style.display = 'block'; // Show action button
+                actionButton.textContent = 'Start'; // Change button text to Start
+
+                // Set default speed value on reset
+                speedSelect.value = "1.7";
+                document.getElementById('speedValue').textContent = "1.7";
+
+                // Stop crowd sound when not running
+                if (isCrowdSoundActive) { // Only stop if it was active
+                    try {
+                        crowdPlayer.stop();
+                        isCrowdSoundActive = false; // Set flag to false
+                        console.log("Crowd player STOPPED during reset.");
+                    } catch (e) {
+                        console.error("Error stopping crowd player:", e);
+                    }
+                }
+                crowdPlayer.volume.value = -Infinity; // Ensure muted
+
+                hideModal(); // Hide modal on reset
+            }
+
+            // Function to draw clouds with parallax effect
+            function drawClouds() {
+                ctx.save();
+                ctx.fillStyle = 'white';
+                clouds.forEach(cloud => {
+                    // Calculate cloud's x position relative to the canvas, with parallax
+                    let renderX = cloud.initialX - (position * cloud.parallaxFactor);
+
+                    // Wrap around the canvas width to create continuous scrolling
+                    renderX = renderX % canvas.width;
+                    if (renderX < -cloud.width * (canvas.width / 600)) { // If it goes off left, bring it to the right
+                        renderX += canvas.width + cloud.width * (canvas.width / 600);
+                    } else if (renderX > canvas.width) { // If it goes off right, bring it to the left (shouldn't happen with positive position)
+                        renderX -= canvas.width + cloud.width * (canvas.width / 600);
+                    }
+
+                    // Scale cloud dimensions and y position
+                    const scaledWidth = cloud.width * (canvas.width / 600);
+                    const scaledHeight = cloud.height * (canvas.height / 400);
+                    const scaledY = cloud.y * (canvas.height / 400);
+
+                    // Draw simple cloud shape using multiple circles
+                    ctx.beginPath();
+                    ctx.arc(renderX, scaledY, scaledWidth / 3, 0, Math.PI * 2);
+                    ctx.arc(renderX + scaledWidth * 0.4, scaledY - scaledHeight * 0.3, scaledWidth / 3, 0, Math.PI * 2);
+                    ctx.arc(renderX + scaledWidth * 0.7, scaledY, scaledWidth / 3, 0, Math.PI * 2);
+                    ctx.arc(renderX + scaledWidth * 0.3, scaledY + scaledHeight * 0.3, scaledWidth / 4, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.restore();
+            }
+
+            function drawGround() {
+                ctx.fillStyle = '#87CEEB'; // Light blue sky
+                ctx.fillRect(0, 0, canvas.width, groundY);
+
+                drawClouds(); // Draw clouds after sky is painted
+
+                ctx.fillStyle = '#228B22'; // Forest green grass
+                ctx.fillRect(0, groundY - 50 * (canvas.height / 400), canvas.width, 50 * (canvas.height / 400));
+                
+                // Removed drawTrees() call here
+
+                ctx.fillStyle = '#c1440e'; // Brick red for track
+                ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+
+                for (let i = 0; i <= numLanes; i++) {
+                    // Skip drawing the line for lane 3 (which is the line at the bottom of lane 3, separating it from lane 4)
+                    // Also skip drawing the line for lane 4 (already implemented)
+                    if (i === 3 || i === 4) {
+                        continue;
+                    }
+                    const y = groundY + i * laneHeight;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+
+                // Draw Long Jump Sand Pit
+                const sandPitRenderXStart = (longJumpPitStartMeter * pixelsPerMeter) - position + (canvas.width / 2);
+                const sandPitRenderXEnd = ((longJumpPitStartMeter + longJumpPitLengthMeter) * pixelsPerMeter) - position + (canvas.width / 2);
+                const sandPitRenderWidth = sandPitRenderXEnd - sandPitRenderXStart;
+
+                const sandPitLaneYTop = groundY + (longJumpPitLanes[0] - 1) * laneHeight; // Top of the highest pit lane
+                const sandPitLaneYBottom = groundY + (longJumpPitLanes[longJumpPitLanes.length - 1]) * laneHeight; // Bottom of the lowest pit lane
+                const sandPitRenderHeight = sandPitLaneYBottom - sandPitLaneYTop;
+
+                ctx.fillStyle = '#F4A460'; // Sand color
+                ctx.fillRect(sandPitRenderXStart, sandPitLaneYTop, sandPitRenderWidth, sandPitRenderHeight);
+                ctx.strokeStyle = '#8B4513'; // Darker brown for border
+                ctx.lineWidth = 2 * (canvas.width / 600);
+                ctx.strokeRect(sandPitRenderXStart, sandPitLaneYTop, sandPitRenderWidth, sandPitRenderHeight);
+                ctx.lineWidth = 2; // Reset line width
+
+
+                // Draw First Long Jump Take-off Line (0.5m out - WHITE)
+                // Doubled the thickness of the line here
+                const takeOffLineWidth = 20 * (canvas.width / 600); // Increased width of the line
+                const whiteLineRenderX = whiteLineMeter * pixelsPerMeter - position + (canvas.width / 2);
+
+                ctx.fillStyle = 'white';
+                ctx.fillRect(
+                    whiteLineRenderX - takeOffLineWidth / 2,
+                    sandPitLaneYTop,
+                    takeOffLineWidth,
+                    sandPitRenderHeight
+                );
+
+                // Draw Second Jump Line (2m out - ORANGE)
+                // Doubled the thickness of the line here
+                const orangeLineRenderX = orangeLineMeter * pixelsPerMeter - position + (canvas.width / 2);
+                ctx.fillStyle = 'orange'; // Distinct color for the second line
+                ctx.fillRect(
+                    orangeLineRenderX - takeOffLineWidth / 2,
+                    sandPitLaneYTop,
+                    takeOffLineWidth,
+                    sandPitRenderHeight
+                );
+
+                ctx.lineWidth = 2; // Reset line width
+
+
+                const interval = 100 * (canvas.width / 600);
+                const dashLength = 5 * (canvas.height / 400);
+                const offset = position % interval;
+                // Removed the local declaration of pixelsPerMeter here
+                // const pixelsPerMeter = 50 * (canvas.width / 600); 
+
+                for (let xi = -interval; xi < canvas.width + interval; xi += interval) {
+                    const draw_x = xi - offset;
+                    ctx.beginPath();
+                    ctx.moveTo(draw_x, stickmanGroundY - dashLength / 2);
+                    ctx.lineTo(draw_x, stickmanGroundY + dashLength / 2);
+                    ctx.stroke();
+
+                    const relative = draw_x - canvas.width / 2;
+                    const meter = Math.round((position + relative) / pixelsPerMeter);
+                    if (meter % 10 === 0 && meter >= 0 && meter <= 100) {
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(draw_x - 15 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 30 * (canvas.width / 600), 15 * (canvas.height / 400));
+                        ctx.fillStyle = 'black';
+                        ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(meter + 'm', draw_x, groundY - 17.5 * (canvas.height / 400));
+                    }
+
+                    if (meter === 0) {
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.moveTo(draw_x, groundY);
+                        ctx.lineTo(draw_x, canvas.height);
+                        ctx.stroke();
+                        ctx.lineWidth = 2;
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(draw_x - 35 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 70 * (canvas.width / 600), 15 * (canvas.height / 400));
+                        ctx.fillStyle = 'black';
+                        ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('Start', draw_x, groundY - 17.5 * (canvas.height / 400));
+
+                        // Removed the loop that draws lane numbers at the start line
+                        // for (let i = 1; i <= numLanes; i++) {
+                        //     ctx.save();
+                        //     ctx.translate(draw_x - 10 * (canvas.width / 600), groundY + (i - 0.5) * laneHeight);
+                        //     ctx.rotate(Math.PI / 2);
+                        //     ctx.fillStyle = 'white';
+                        //     ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                        //     ctx.textAlign = 'center';
+                        //     ctx.textBaseline = 'middle';
+                        //     ctx.fillText(i, 0, 0);
+                        //     ctx.restore();
+                        // }
+                    }
+
+                    if (meter === 100) {
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.moveTo(draw_x, groundY);
+                        ctx.lineTo(draw_x, canvas.height);
+                        ctx.stroke();
+                        ctx.lineWidth = 2;
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(draw_x - 35 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 70 * (canvas.width / 600), 15 * (canvas.height / 400));
+                        ctx.fillStyle = 'black';
+                        ctx.font = `${12 * (canvas.width / 600)}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('Finish', draw_x, groundY - 17.5 * (canvas.height / 400));
+                    }
+                }
+
+                // Draw 1m increments next to the long jump pit, starting from the white line
+                ctx.save();
+                ctx.strokeStyle = 'black';
+                ctx.fillStyle = 'black';
+                ctx.font = `${10 * (canvas.width / 600)}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.lineWidth = 1;
+
+                const meterMarkLength = 10 * (canvas.height / 400); // Length of the meter mark line
+                const textOffsetFromMark = 15 * (canvas.width / 600); // Distance of text from mark
+
+                const whiteLineGlobalMeter = longJumpPitStartMeter - firstTakeOffLineOffsetMeter;
+                const sandPitEndGlobalMeter = longJumpPitStartMeter + longJumpPitLengthMeter;
+
+                // Iterate for distances from the white line, up to the end of the sand pit
+                // The max distance from the white line that we want to mark is the end of the pit minus the white line's position.
+                const maxDistanceToMark = sandPitEndGlobalMeter - whiteLineGlobalMeter;
+
+                for (let distFromWhiteLine = 0; distFromWhiteLine <= maxDistanceToMark; distFromWhiteLine++) {
+                    // Only draw integer meter marks
+                    if (distFromWhiteLine % 1 !== 0) continue;
+
+                    const currentGlobalMeter = whiteLineGlobalMeter + distFromWhiteLine;
+                    const meterRenderX = (currentGlobalMeter * pixelsPerMeter) - position + (canvas.width / 2);
+
+                    // Ensure the mark is within the visual bounds of the sand pit
+                    const sandPitRenderXStart = (longJumpPitStartMeter * pixelsPerMeter) - position + (canvas.width / 2);
+                    const sandPitRenderXEnd = ((longJumpPitStartMeter + longJumpPitLengthMeter) * pixelsPerMeter) - position + (canvas.width / 2);
+
+                    if (meterRenderX >= sandPitRenderXStart && meterRenderX <= sandPitRenderXEnd) {
+                        // Draw the meter mark line
+                        ctx.beginPath();
+                        ctx.moveTo(meterRenderX, sandPitLaneYTop - meterMarkLength / 2);
+                        ctx.lineTo(meterRenderX, sandPitLaneYTop + meterMarkLength / 2);
+                        ctx.stroke();
+
+                        // Draw the meter number
+                        ctx.fillText(`${distFromWhiteLine}m`, meterRenderX, sandPitLaneYTop - textOffsetFromMark);
+                    }
+                }
+                ctx.restore();
+            }
+
+            // New function to draw hurdles
+            function drawHurdles() {
+                if (areHurdlesHidden) { // If hurdles are hidden, don't draw them
+                    return;
+                }
+
+                ctx.save();
+                ctx.lineWidth = 1 * (canvas.width / 600); // Scaled line width
+
+                // Define hurdle dimensions once, scaled
+                const baseHurdleHeight = 40; // Base height in original canvas units
+                const baseHurdleThickness = 2; // Base thickness along track in original canvas units (for fallen hurdle width)
+                const baseHurdleBarThickness = 5; // Base yellow bar thickness in original canvas units
+
+                const uprightHurdleHeight = baseHurdleHeight * (canvas.height / 400);
+                const hurdleDepthAlongTrack = baseHurdleThickness * (canvas.width / 600);
+                const hurdleBarThickness = baseHurdleBarThickness * (canvas.height / 400);
+                // Hurdle spans the full width of the lane visually
+                const hurdleVisualWidthAcrossLane = laneHeight;
+
+                hurdles.forEach(hurdle => {
+                    const hurdleCenterGlobalX = hurdle.meterPosition * pixelsPerMeter;
+                    // Calculate hurdleRenderX relative to the stickman's position
+                    let hurdleRenderX = hurdleCenterGlobalX - position + (canvas.width / 2);
+
+                    // Check if hurdle is within the sand pit's global meter range and in a pit lane
+                    const isHurdleInSandPit = hurdle.meterPosition >= longJumpPitStartMeter &&
+                                              hurdle.meterPosition <= (longJumpPitStartMeter + longJumpPitLengthMeter) &&
+                                              longJumpPitLanes.includes(hurdle.lane);
+
+                    if (isHurdleInSandPit) {
+                        return; // Skip drawing this hurdle if it's in the sand pit and one of the pit lanes
+                    }
+
+                    // Only draw hurdles in the stickman's current lane
+                    if (hurdle.lane !== stickmanLane) {
+                        return;
+                    }
+
+                    // Lane boundaries for the specific hurdle's lane
+                    const laneTopY = groundY + (hurdle.lane - 1) * laneHeight;
+                    const laneBottomY = groundY + hurdle.lane * laneHeight;
+
+                    if (hurdle.isFallen) {
+                        // When fallen, the hurdle lies flat horizontally within its lane.
+                        const fallenHurdleLengthAlongTrack = uprightHurdleHeight;
+                        const fallenHurdleWidthAcrossLane = hurdleDepthAlongTrack;
+
+                        // Position the fallen hurdle to be centered vertically within its lane
+                        const fallenHurdleCenterY = laneTopY + (laneHeight / 2);
+                        const fallenHurdleDrawY = fallenHurdleCenterY - (fallenHurdleWidthAcrossLane / 2);
+
+                        const fallOffset = (dir * fallenHurdleLengthAlongTrack * 0.2);
+                        const fallenHurdleXStart = hurdleRenderX - fallenHurdleLengthAlongTrack / 2 + fallOffset;
+
+                        // Draw the yellow top bar
+                        ctx.fillStyle = 'yellow';
+                        ctx.fillRect(
+                            fallenHurdleXStart,
+                            fallenHurdleDrawY,
+                            fallenHurdleLengthAlongTrack,
+                            hurdleBarThickness
+                        );
+                        ctx.strokeRect(
+                            fallenHurdleXStart,
+                            fallenHurdleDrawY,
+                            fallenHurdleLengthAlongTrack,
+                            hurdleBarThickness
+                        );
+
+                        // Draw the white main body
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(
+                            fallenHurdleXStart,
+                            fallenHurdleDrawY + hurdleBarThickness,
+                            fallenHurdleLengthAlongTrack,
+                            fallenHurdleWidthAcrossLane - hurdleBarThickness
+                        );
+                        ctx.strokeRect(
+                            fallenHurdleXStart,
+                            fallenHurdleDrawY + hurdleBarThickness,
+                            fallenHurdleLengthAlongTrack,
+                            fallenHurdleWidthAcrossLane - hurdleBarThickness
+                        );
+
+                    } else {
+                        // Draw the upright hurdle.
+                        const uprightHurdleDrawY = laneBottomY - uprightHurdleHeight;
+
+                        // Draw the white main body (legs and support structure)
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(
+                            hurdleRenderX - hurdleVisualWidthAcrossLane / 2,
+                            uprightHurdleDrawY + hurdleBarThickness,
+                            hurdleVisualWidthAcrossLane,
+                            uprightHurdleHeight - hurdleBarThickness
+                        );
+                        ctx.strokeRect(
+                            hurdleRenderX - hurdleVisualWidthAcrossLane / 2,
+                            uprightHurdleDrawY + hurdleBarThickness,
+                            hurdleVisualWidthAcrossLane,
+                            uprightHurdleHeight - hurdleBarThickness
+                        );
+
+                        // Draw the yellow top bar
+                        ctx.fillStyle = 'yellow';
+                        ctx.fillRect(
+                            hurdleRenderX - hurdleVisualWidthAcrossLane / 2,
+                            uprightHurdleDrawY,
+                            hurdleVisualWidthAcrossLane,
+                            hurdleBarThickness
+                        );
+                        ctx.strokeRect(
+                            hurdleRenderX - hurdleVisualWidthAcrossLane / 2,
+                            uprightHurdleDrawY,
+                            hurdleVisualWidthAcrossLane,
+                            hurdleBarThickness
+                        );
+                    }
+                });
+                ctx.restore();
+            }
+
+            // New function to draw jump marks
+            function drawJumpMarks() {
+                ctx.save();
+                ctx.lineWidth = 1 * (canvas.width / 600);
+                const markRadius = 3 * (canvas.width / 600); // Size of the mark
+                const textOffset = 20 * (canvas.width / 600); // Increased offset for text from mark
+
+                jumpMarks.forEach(mark => {
+                    const markRenderX = (mark.meterPosition * pixelsPerMeter) - position + (canvas.width / 2);
+                    // Position mark at the bottom of the lane, slightly above the track surface
+                    const markRenderY = groundY + (mark.lane - 1) * laneHeight + laneHeight - (laneHeight * 0.1); // Adjust for visual placement
+
+                    // Set color based on player who made the jump
+                    ctx.fillStyle = mark.player === 0 ? playerStickmanColor : computerStickmanColor;
+                    ctx.strokeStyle = mark.player === 0 ? playerStickmanColor : computerStickmanColor;
+
+                    ctx.beginPath();
+                    ctx.arc(markRenderX, markRenderY, markRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw the jump distance measurement
+                    ctx.fillStyle = 'black'; // Text color is always black for readability
+                    ctx.font = `${16 * (canvas.width / 600)}px Arial`; // Increased font size slightly
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom'; // Align text to the bottom of the mark
+                    ctx.fillText(`${mark.distance.toFixed(2)}m`, markRenderX, markRenderY - markRadius - 5); // Display distance slightly above the mark
+                });
+                ctx.restore();
+            }
+
+
+            function drawStickman() {
+                ctx.lineWidth = 2 * (canvas.width / 600); // Scale line width
+                // Ensure players array and currentPlayerIndex are valid before accessing
+                ctx.strokeStyle = (players[currentPlayerIndex] && players[currentPlayerIndex].name === 'Computer') ? computerStickmanColor : playerStickmanColor; // Set stickman color based on current player
+                ctx.save();
+
+                // Only animate if not paused
+                const moving = (gameState === 'running' || gameState === 'finished') && ((keys['a'] || keys['d']) || horizontalVelocity !== 0 || computerJumpInProgress);
+
+                const gaitAmplitude = (dir === 1) ? parseFloat(document.getElementById('gaitAmplitude').value) : parseFloat(document.getElementById('gaitAmplitudeLeft').value);
+                const stepFrequency = (dir === 1) ? parseFloat(document.getElementById('stepFrequency').value) : parseFloat(document.getElementById('stepFrequencyLeft').value);
+                const frontKneeBend = (dir === 1) ? parseFloat(document.getElementById('frontKneeBend').value) : parseFloat(document.getElementById('frontKneeBendLeft').value);
+                const backKneeBendMax = (dir === 1) ? parseFloat(document.getElementById('backKneeBendMax').value) : parseFloat(document.getElementById('backKneeBendMaxLeft').value);
+                const backKneeBendMultiplier = (dir === 1) ? parseFloat(document.getElementById('backKneeBendMultiplier').value) : parseFloat(document.getElementById('backKneeBendMultiplierLeft').value);
+                const elbowBend = (dir === 1) ? parseFloat(document.getElementById('elbowBend').value) : parseFloat(document.getElementById('elbowBendLeft').value);
+                const torsoThickness = (dir === 1) ? parseFloat(document.getElementById('torsoThickness').value) : parseFloat(document.getElementById('torsoThicknessLeft').value);
+                const armSwingMultiplier = (dir === 1) ? parseFloat(armSwingMultiplierSelect.value) : parseFloat(armSwingMultiplierLeftSelect.value);
+
+
+                const crouchExtraBend = parseFloat(document.getElementById('crouchExtraBend').value);
+
+                // Legs
+                const phase = ((stepCycle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+                
+                let currentLegAngles = [0, 0];
+                let currentKneeBends = [0, 0];
+                let currentArmAngles = [0, 0]; // For drawArm
+                let currentElbowBends = [0, 0]; // For drawArm
+                let currentLeftHandTarget = null; // For drawArmToHand
+                let currentRightHandTarget = null; // For drawArmToHand
+                let useDrawArmToHand = false; // Flag to decide which arm drawing function to use
+
+                let crouchDrawOffset = 0; // Initialize offset for drawing
+
+
+                // Get hurdle knee bend values from sliders
+                const hurdleLeadKneeBend = parseFloat(hurdleLeadKneeBendSelect.value);
+                const hurdleTrailKneeBend = parseFloat(hurdleTrailKneeBendSelect.value);
+
+                if (isCrouching) {
+                    // When crouching, override leg and knee angles for a squat pose
+                    const squatUpperLegAngle = Math.PI / 4; // More outward angle for upper legs
+                    const squatKneeBend = 2.0; // Deeper knee bend for squat
+
+                    currentLegAngles = [squatUpperLegAngle, -squatUpperLegAngle]; // Left leg outward, Right leg outward
+                    currentKneeBends = [squatKneeBend, squatKneeBend]; // Symmetrical deep bend
+
+                    crouchDrawOffset = crouchExtraBend * 30 * (canvas.height / 400); // Lower the body significantly
+                } else if (isHurling) { // New hurdle pose logic
+                    // Adjust leg angles for hurdling
+                    const hurdleLeadLegAngle = -Math.PI / 6; // Lead leg forward and slightly down
+                    const hurdleTrailLegAngle = Math.PI / 2; // Trail leg bent and raised high
+
+                    if (dir === 1) { // Moving right, left leg leads
+                        currentLegAngles = [hurdleLeadLegAngle, hurdleTrailLegAngle];
+                        currentKneeBends = [hurdleLeadKneeBend, hurdleTrailKneeBend];
+                    } else { // Moving left, right leg leads
+                        currentLegAngles = [hurdleTrailLegAngle, hurdleLeadLegAngle];
+                        currentKneeBends = [hurdleTrailKneeBend, hurdleLeadKneeBend];
+                    }
+                }
+                else if (moving && onGround) {
+                    currentLegAngles = [
+                        Math.sin(phase) * gaitAmplitude,
+                        Math.sin(phase + Math.PI) * gaitAmplitude
+                    ];
+                    currentKneeBends = currentLegAngles.map(a => {
+                        const isBack = (a < 0);
+                        return isBack ? Math.min(backKneeBendMax, -a * backKneeBendMultiplier) : frontKneeBend;
+                    });
+                } else if (gameState === 'idle' || gameState === 'countdown' || gameState === 'turn_end_paused' || gameState === 'game_end_paused') { // Apply ready pose for idle, countdown, and paused states
+                    // Ensure facing right
+                    dir = 1;
+
+                    // Legs: One forward, one back, both bent
+                    currentLegAngles = [-Math.PI / 8, Math.PI / 8]; // Front leg slightly back, back leg slightly forward
+                    currentKneeBends = [0.5, 0.5]; // Both knees slightly bent
+                } else if (gameState === 'finished' || (!moving && gameState === 'running')) { // Normal idle pose for finished state OR stopped mid-race
+                    // Always face right in this pose
+                    dir = 1;
+                    currentLegAngles = [0, 0]; // Legs straight down
+                    currentKneeBends = [0.1, 0.1]; // Slight knee bend for relaxed stance
+                }
+                else { // Default legs (should mostly be covered by above, but as a fallback)
+                    currentLegAngles = [0, 0];
+                    currentKneeBends = [0, 0];
+                }
+
+                // Add slight bobbing when walking on ground, but not when crouching or jumping
+                let bobbingOffset = 0;
+                if (moving && onGround && !isCrouching && vy === 0) { // Only bob if moving, on ground, not crouching, and not jumping
+                    bobbingOffset = Math.sin(phase) * 3 * (canvas.height / 400); // Scale bobbing
+                }
+
+                let x = canvas.width / 2;
+
+                let flipped = dir === -1;
+                if (flipped) {
+                    ctx.translate(x, 0);
+                    ctx.scale(-1, 1);
+                    ctx.translate(-x, 0);
+                }
+
+                // Hip spread: Apply when not moving, crouching, or hurdling to ensure both legs are visible
+                const hipSpread = (!moving && !isCrouching && !isHurling) ? 3 * (canvas.width / 600) : 0;
+
+                // Apply crouchDrawOffset and bobbingOffset to all y-coordinates for drawing
+                const currentHipY = y + crouchDrawOffset + bobbingOffset;
+                const hipLeft = { x: x - hipSpread, y: currentHipY };
+                const hipRight = { x: x + hipSpread, y: currentHipY };
+                const shoulder = { x: x, y: currentHipY - 25 * (canvas.height / 400) };
+                const shoulderLeft = { x: x - torsoThickness * (canvas.width / 600), y: currentHipY - 25 * (canvas.height / 400) };
+                const shoulderRight = { x: x + torsoThickness * (canvas.width / 600), y: currentHipY - 25 * (canvas.height / 400) };
+                const neckTopY = shoulder.y - 5 * (canvas.height / 400);
+
+                // Draw hips
+                ctx.beginPath();
+                ctx.arc(hipLeft.x, hipLeft.y, 3 * (canvas.width / 600), 0, Math.PI * 2); // Scale hip radius
+                ctx.fillStyle = ctx.strokeStyle; // Use stickman color for fill
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(hipRight.x, hipRight.y, 3 * (canvas.width / 600), 0, Math.PI * 2); // Scale hip radius
+                ctx.fill();
+
+                // Draw shoulders
+                ctx.beginPath();
+                ctx.arc(shoulderLeft.x, shoulderLeft.y, 2.5 * (canvas.width / 600), 0, Math.PI * 2); // Scale shoulder radius
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(shoulderRight.x, shoulderRight.y, 2.5 * (canvas.width / 600), 0, Math.PI * 2); // Scale shoulder radius
+                ctx.fill();
+
+                // Neck
+                ctx.beginPath();
+                ctx.moveTo(x, shoulder.y);
+                ctx.lineTo(x, neckTopY);
+                ctx.stroke();
+
+                // Head
+                ctx.beginPath();
+                ctx.arc(x, neckTopY - 10 * (canvas.height / 400), 10 * (canvas.width / 600), 0, Math.PI * 2); // Scale head radius
+                ctx.fillStyle = '#D3D3D3'; // Light grey for face
+                ctx.fill();
+                ctx.strokeStyle = ctx.strokeStyle; // Use stickman color for stroke
+                ctx.stroke();
+                const faceDir = moving ? (flipped ? -dir : dir) : (gameState === 'idle' || gameState === 'countdown' || gameState === 'finished' || (!moving && gameState === 'running') ? 1 : 0); // Face right when idle or countdown
+                drawFace(x, neckTopY - 10 * (canvas.height / 400), expressionSelect.value, faceDir);
+
+                // Torso
+                ctx.beginPath();
+                ctx.moveTo(shoulderLeft.x, shoulder.y);
+                ctx.lineTo(shoulderRight.x, shoulder.y);
+                ctx.lineTo(x, currentHipY); // Use currentHipY for torso bottom
+                ctx.lineTo(shoulderLeft.x, shoulder.y);
+                ctx.stroke();
+
+                // Draw legs
+                drawLeg(hipLeft, upperLegLen * (canvas.height / 400), currentLegAngles[0], lowerLegLen * (canvas.height / 400), currentKneeBends[0]);
+                drawLeg(hipRight, upperLegLen * (canvas.height / 400), currentLegAngles[1], lowerLegLen * (canvas.height / 400), currentKneeBends[1]);
+
+                // Determine Arm Poses
+                if (isHurling) { // Specific arm pose for hurdling
+                    const hurdleArmForwardAngle = -Math.PI / 8; // Arm forward and slightly down
+                    const hurdleArmBackwardAngle = Math.PI / 4; // Arm back and slightly up
+
+                    const hurdleElbowBend = 0.5; // Slight bend in elbows
+
+                    if (dir === 1) { // Moving right, left arm forward
+                        currentArmAngles = [hurdleArmForwardAngle, hurdleArmBackwardAngle];
+                        currentElbowBends = [hurdleElbowBend, hurdleElbowBend];
+                    } else { // Moving left, right arm leads
+                        currentArmAngles = [hurdleArmBackwardAngle, hurdleArmForwardAngle];
+                        currentElbowBends = [hurdleElbowBend, hurdleElbowBend];
+                    }
+                    useDrawArmToHand = false; // Use drawArm
+                }
+                else if (moving && onGround) { // Arm swing when walking
+                    const armPhase = phase + Math.PI;
+                    // Multiply arm swing by 'dir' to mirror the swing direction relative to the stickman's body
+                    currentArmAngles = [
+                        -Math.sin(armPhase) * armSwingMultiplier * dir,
+                        -Math.sin(armPhase + Math.PI) * armSwingMultiplier * dir
+                    ];
+                    // Apply elbowBend directly for constant bend
+                    currentElbowBends = [elbowBend, elbowBend];
+                    useDrawArmToHand = false; // Use drawArm
+                } else if (isCrouching) { // Specific arm pose for crouching
+                    const crouchArmOffsetForward = 10 * (canvas.width / 600); // How much arms come forward
+                    const crouchArmOffsetDown = 15 * (canvas.height / 400); // How much arms go down
+
+                    currentLeftHandTarget = {
+                        x: shoulderLeft.x - crouchArmOffsetForward * dir, // Adjust based on dir for proper perspective
+                        y: shoulderLeft.y + crouchArmOffsetDown
+                    };
+                    currentRightHandTarget = {
+                        x: shoulderRight.x + crouchArmOffsetForward * dir, // Adjust based on dir for proper perspective
+                        y: shoulderRight.y + crouchArmOffsetDown
+                    };
+                    useDrawArmToHand = true; // Use drawArmToHand
+                }
+                else if (gameState === 'idle' || gameState === 'countdown' || gameState === 'turn_end_paused' || gameState === 'game_end_paused') { // Ready to run arm pose for idle and countdown
+                    const readyArmForwardAngle = -Math.PI / 4; // Arm forward and bent
+                    const readyArmBackwardAngle = Math.PI / 4; // Arm back and bent
+                    const readyElbowBend = 1.0; // Significant elbow bend
+
+                    // For dir=1 (facing right), left arm is forward, right arm is back.
+                    currentArmAngles = [readyArmForwardAngle, readyArmBackwardAngle];
+                    currentElbowBends = [readyElbowBend, readyElbowBend];
+                    useDrawArmToHand = false; // Use drawArm
+                }
+                else if (gameState === 'finished' || (!moving && gameState === 'running')) { // Normal idle arms (hands on hips) for finished state OR stopped mid-race
+                    const idleArmOffsetForward = 5 * (canvas.width / 600); // Slightly forward
+                    const hipToShoulderDiffY = currentHipY - shoulder.y;
+                    const idleArmOffsetDown = hipToShoulderDiffY * 0.7; // Adjust this multiplier to fine-tune vertical position
+                    currentLeftHandTarget = {
+                        x: shoulderLeft.x - idleArmOffsetForward * dir,
+                        y: shoulderLeft.y + idleArmOffsetDown
+                    };
+                    currentRightHandTarget = {
+                        x: shoulderRight.x + idleArmOffsetForward * dir,
+                        y: shoulderRight.y + idleArmOffsetDown
+                    };
+                    useDrawArmToHand = true; // Use drawArmToHand
+                }
+                else { // Default arms (straight down if no other pose applies)
+                    const idleArmOffsetForward = 0;
+                    const hipToShoulderDiffY = currentHipY - shoulder.y;
+                    const idleArmOffsetDown = hipToShoulderDiffY * 0.7;
+                    currentLeftHandTarget = {
+                        x: shoulderLeft.x - idleArmOffsetForward * dir,
+                        y: shoulderLeft.y + idleArmOffsetDown
+                    };
+                    currentRightHandTarget = {
+                        x: shoulderRight.x + idleArmOffsetForward * dir,
+                        y: shoulderRight.y + idleArmOffsetDown
+                    };
+                    useDrawArmToHand = true;
+                }
+
+                // Draw arms using the determined parameters
+                if (useDrawArmToHand) {
+                    drawArmToHand(shoulderLeft, currentLeftHandTarget);
+                    drawArmToHand(shoulderRight, currentRightHandTarget);
+                } else {
+                    drawArm(shoulderLeft, upperArmLen * (canvas.height / 400), currentArmAngles[0], lowerArmLen * (canvas.height / 400), currentElbowBends[0]);
+                    drawArm(shoulderRight, upperArmLen * (canvas.height / 400), currentArmAngles[1], lowerArmLen * (canvas.height / 400), currentElbowBends[1]);
+                }
+
+                ctx.restore();
+            }
+
+            function drawLeg(hip, upperLen, angle1, lowerLen, bendAmount) {
+                ctx.save();
+                ctx.strokeStyle = ctx.strokeStyle; // Use stickman color
+
+                const jointX = hip.x + Math.sin(angle1) * upperLen;
+                const jointY = hip.y + Math.cos(angle1) * upperLen;
+                const lowerLegAngle = angle1 - bendAmount;
+                const endX = jointX + Math.sin(lowerLegAngle) * lowerLen;
+                const endY = jointY + Math.cos(lowerLegAngle) * lowerLen;
+
+                ctx.beginPath();
+                ctx.moveTo(hip.x, hip.y);
+                ctx.lineTo(jointX, jointY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                const scaledFootRadius = footRadius * (canvas.width / 600);
+                ctx.arc(endX, endY, scaledFootRadius, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+                ctx.strokeStyle = ctx.strokeStyle; // Use stickman color
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            function drawArm(start, len1, angle1, len2, bendAmount) {
+                const jointX = start.x + Math.sin(angle1) * len1;
+                const jointY = start.y + Math.cos(angle1) * len1;
+                const bendAngle = angle1 + bendAmount;
+                const endX = jointX + Math.sin(bendAngle) * (len2 * 0.7);
+                const endY = jointY + Math.cos(bendAngle) * (len2 * 0.7);
+
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(jointX, jointY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(endX, endY, 2 * (canvas.width / 600), 0, Math.PI * 2);
+                ctx.fillStyle = ctx.strokeStyle; // Use stickman color for fill
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            function drawArmToHand(shoulderPos, handPos) {
+                const dx = handPos.x - shoulderPos.x;
+                const dy = handPos.y - shoulderPos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                let elbowX, elbowY;
+                let finalHandX = handPos.x;
+                let finalHandY = handPos.y;
+
+                const scaledUpperArmLen = upperArmLen * (canvas.height / 400);
+                const scaledLowerArmLen = lowerArmLen * (canvas.height / 400);
+
+                if (dist > scaledUpperArmLen + scaledLowerArmLen) {
+                    const ratio = (scaledUpperArmLen + scaledLowerArmLen) / dist;
+                    elbowX = shoulderPos.x + dx * (scaledUpperArmLen / dist);
+                    elbowY = shoulderPos.y + dy * (scaledUpperArmLen / dist);
+                    finalHandX = shoulderPos.x + dx * ratio;
+                    finalHandY = shoulderPos.y + dy * ratio;
+                } else {
+                    const cosAngle = (scaledUpperArmLen**2 + dist**2 - scaledLowerArmLen**2) / (2 * scaledUpperArmLen * dist);
+                    const angleElbow = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+                    const targetAngle = Math.atan2(dy, dx);
+                    const sign = (handPos.x < shoulderPos.x) ? 1 : -1; // Determine sign based on hand's x-position relative to shoulder
+                    const shoulderAngle = targetAngle + sign * angleElbow;
+                    elbowX = shoulderPos.x + Math.cos(shoulderAngle) * scaledUpperArmLen;
+                    elbowY = shoulderPos.y + Math.sin(shoulderAngle) * scaledUpperArmLen;
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(shoulderPos.x, shoulderPos.y);
+                ctx.lineTo(elbowX, elbowY);
+                ctx.lineTo(finalHandX, finalHandY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(finalHandX, finalHandY, 2 * (canvas.width / 600), 0, Math.PI * 2);
+                ctx.fillStyle = ctx.strokeStyle; // Use stickman color for fill
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            function drawFace(x, y, expression, faceDir) {
+                const scaleFactor = canvas.width / 600;
+                const eyeGap = 4 * scaleFactor, eyeY = -3 * scaleFactor, mouthY = 3 * scaleFactor;
+                const eyeRadius = 2.5 * scaleFactor, pupilRadius = 1.2 * scaleFactor;
+                const offsetX = faceDir === 1 ? 2 * scaleFactor : faceDir === -1 ? -2 * scaleFactor : 0;
+                const mouthX = offsetX;
+                const leftX = -eyeGap + offsetX;
+                const rightX = eyeGap + offsetX;
+
+                ctx.save();
+                ctx.translate(x, y);
+
+                if (isBlinking) {
+                    ctx.beginPath();
+                    ctx.lineWidth = 1 * scaleFactor;
+                    ctx.moveTo(leftX - eyeRadius, eyeY);
+                    ctx.lineTo(leftX + eyeRadius, eyeY);
+                    ctx.moveTo(rightX - eyeRadius, eyeY);
+                    ctx.lineTo(rightX + eyeRadius, eyeY);
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.lineWidth = 0.5 * scaleFactor;
+                    ctx.arc(leftX, eyeY, eyeRadius, 0, Math.PI * 2);
+                    ctx.arc(rightX, eyeY, eyeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'blue';
+                    ctx.beginPath();
+                    ctx.arc(leftX, eyeY, pupilRadius, 0, Math.PI * 2);
+                    ctx.arc(rightX, eyeY, pupilRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.beginPath();
+                ctx.lineWidth = 1 * scaleFactor;
+                if (expression === 'happy') {
+                    ctx.arc(mouthX, mouthY - 2 * scaleFactor, 5 * scaleFactor, 0, Math.PI, false);
+                } else if (expression === 'sad') {
+                    ctx.arc(mouthX, mouthY + 2 * scaleFactor, 5 * scaleFactor, 0, Math.PI, true);
+                } else if (expression === 'angry') {
+                    ctx.moveTo(mouthX - 3 * scaleFactor, mouthY);
+                    ctx.lineTo(mouthX + 3 * scaleFactor, mouthY);
+                } else if (expression === 'surprised') {
+                    ctx.arc(mouthX, mouthY, 2.5 * scaleFactor, 0, Math.PI * 2);
+                } else if (expression === 'tired') {
+                    ctx.moveTo(mouthX - 4 * scaleFactor, mouthY + 2 * scaleFactor);
+                    ctx.lineTo(mouthX + 4 * scaleFactor, mouthY + 4 * scaleFactor);
+                } else if (expression === 'trying') {
+                    ctx.moveTo(mouthX - 4 * scaleFactor, mouthY);
+                    ctx.lineTo(mouthX + 4 * scaleFactor, mouthY);
+                } else {
+                    ctx.moveTo(mouthX - 4 * scaleFactor, mouthY);
+                    ctx.lineTo(mouthX + 4 * scaleFactor, mouthY);
+                }
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // New function for drawing debug info on canvas
+                        function drawDebugInfo() {
+                if (!showUI) return; // Only draw if showUI is true
+
+                ctx.save();
+                ctx.fillStyle = 'black';
+                ctx.font = `${14 * (canvas.width / 600)}px monospace`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                const padding = 10 * (canvas.width / 600);
+                let yOffset = padding;
+
+                ctx.fillText(`GameState: ${gameState}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`keys['a']: ${keys['a'] || false}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`keys['d']: ${keys['d'] || false}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`keys['w']: ${keys['w'] || false}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`keys['s']: ${keys['s'] || false}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`keys['q']: ${keys['q'] || false}`, padding, yOffset); // Added 'q' key state
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`onGround: ${onGround}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`manualMode: ${manualModeCheckbox.checked}`, padding, yOffset); // Add manual mode status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`isHurling: ${isHurling}`, padding, yOffset); // Add hurdle status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Speed Penalty: ${speedPenaltyActive ? 'Active' : 'Inactive'}`, padding, yOffset); // Add speed penalty status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Position: ${position.toFixed(2)}`, padding, yOffset); // Add current position
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`horizontalVelocity: ${horizontalVelocity.toFixed(2)}`, padding, yOffset); // New: Display horizontal velocity
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Dir: ${dir}`, padding, yOffset); // Add current direction
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdles Cleared: ${hurdlesClearedCount}`, padding, yOffset); // Add hurdles cleared count
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Last Hurdle Index Passed: ${lastHurdleIndexPassed}`, padding, yOffset); // Add last hurdle index passed
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdle 3 Cleared: ${hurdle3Cleared}`, padding, yOffset); // Add hurdle 3 cleared status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdle 4 Cleared: ${hurdle4Cleared}`, padding, yOffset); // Add hurdle 4 cleared status
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Loaded: ${crowdPlayer.loaded}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Playing: ${crowdPlayer.isPlaying}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Crowd Volume: ${crowdPlayer.volume.value.toFixed(2)}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`isCrowdSoundActive: ${isCrowdSoundActive}`, padding, yOffset); // New debug for the flag
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdles Hidden: ${areHurdlesHidden}`, padding, yOffset); // New debug for hurdle visibility
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Hurdle Sounds Enabled: ${areHurdleSoundsEnabled}`, padding, yOffset); // New debug for hurdle sounds
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Stickman Lane: ${stickmanLane}`, padding, yOffset); // New debug for stickman lane
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`isJumping: ${isJumping}`, padding, yOffset); // New debug for isJumping
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`jumpStartedFromTakeOffLine: ${jumpStartedFromTakeOffLine}`, padding, yOffset); // New debug for jumpStartedFromTakeOffLine
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Last Jump Distance: ${lastJumpDistance.toFixed(2)}m`, padding, yOffset); // New debug for last jump distance
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Jump Power: ${jumpPower.toFixed(2)}`, padding, yOffset); // New debug for jump power
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`qTappedOnLine: ${qTappedOnLine}`, padding, yOffset); // New debug for qTappedOnLine
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Jump Accuracy Deviation: ${jumpAccuracyDeviation.toFixed(2)}`, padding, yOffset); // New debug for jumpAccuracyDeviation
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Combined Jump Factor: ${combinedJumpFactor.toFixed(2)}`, padding, yOffset); // New debug for combinedJumpFactor
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Current Player: ${players[currentPlayerIndex].name}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Current Jump: ${currentJumpNumber}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Computer Jump In Progress: ${computerJumpInProgress}`, padding, yOffset);
+                yOffset += 20 * (canvas.width / 600);
+                ctx.fillText(`Waiting for Input: ${waitingForInput}`, padding, yOffset);
+
+
+                ctx.restore();
+            }
+
+            // New function to draw jump power indicator
+            function drawJumpPowerIndicator() {
+                ctx.save();
+                ctx.fillStyle = 'black';
+                ctx.font = `${16 * (canvas.width / 600)}px 'Fira Code', monospace`;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+
+                const padding = 10 * (canvas.width / 600);
+                const xPos = canvas.width - padding;
+                const yPos = padding + 40 * (canvas.height / 400); // Below stopwatch
+
+                ctx.fillText(`Jump Power: ${jumpPower.toFixed(2)}`, xPos, yPos);
+                ctx.restore();
+            }
+
+            // New function to draw jump accuracy bar indicator
+            function drawJumpAccuracyIndicator() {
+                ctx.save();
+                ctx.fillStyle = 'black';
+                ctx.font = `${16 * (canvas.width / 600)}px 'Fira Code', monospace`;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'top';
+
+                const padding = 10 * (canvas.width / 600);
+                const xPos = canvas.width - padding;
+                const yPos = padding + 70 * (canvas.height / 400); // Below jump power
+
+                ctx.fillText('Jump Accuracy:', xPos, yPos);
+
+                // Draw the bar
+                const barWidth = 100 * (canvas.width / 600);
+                const barHeight = 10 * (canvas.height / 400);
+                const barX = xPos - barWidth;
+                const barY = yPos + 20 * (canvas.height / 400);
+
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1 * (canvas.width / 600);
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                // Draw center line
+                const centerLineX = barX + barWidth / 2;
+                ctx.beginPath();
+                ctx.moveTo(centerLineX, barY);
+                ctx.lineTo(centerLineX, barY + barHeight);
+                ctx.stroke();
+
+                // Draw the marker
+                const hotZoneRadius = 0.5; // This is the max deviation for 100% power, now matching the updated value
+                // Map deviation to bar position: -hotZoneRadius maps to 0, +hotZoneRadius maps to barWidth
+                // clamped to prevent marker going outside bar if deviation is extreme
+                let markerX = barX + (jumpAccuracyDeviation + hotZoneRadius) / (2 * hotZoneRadius) * barWidth;
+                markerX = Math.max(barX, Math.min(barX + barWidth, markerX)); // Clamp marker to bar
+                
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(markerX, barY + barHeight / 2, barHeight / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Display numerical deviation
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${jumpAccuracyDeviation.toFixed(2)}m`, centerLineX, barY + barHeight + 5 * (canvas.height / 400));
+
+                ctx.restore();
+            }
+
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawGround();
+                drawHurdles();
+                drawJumpMarks(); // Draw jump marks
+                drawStickman();
+                drawStopwatch();
+                drawCountdownMessage();
+                drawDebugInfo(); // Draw debug information
+                drawScores(); // Draw scores
+                drawJumpPowerIndicator(); // Draw jump power indicator
+                drawJumpAccuracyIndicator(); // Draw jump accuracy bar indicator
+                drawPauseMessage(); // Draw pause message
+            }
+
+            function loop() {
+                updateDimensions();
+                update();
+                draw();
+                animationFrameId = requestAnimationFrame(loop);
+            }
+
+            // Slider event listeners
+            document.getElementById('speed').addEventListener('input', function() {
+                document.getElementById('speedValue').textContent = this.value;
+            });
+            document.getElementById('gaitAmplitude').addEventListener('input', function() {
+                document.getElementById('gaitAmplitudeValue').textContent = this.value;
+            });
+            document.getElementById('stepFrequency').addEventListener('input', function() {
+                document.getElementById('stepFrequencyValue').textContent = this.value;
+            });
+            document.getElementById('frontKneeBend').addEventListener('input', function() {
+                document.getElementById('frontKneeBendValue').textContent = this.value;
+            });
+            document.getElementById('backKneeBendMax').addEventListener('input', function() {
+                document.getElementById('backKneeBendMaxValue').textContent = this.value;
+            });
+            document.getElementById('backKneeBendMultiplier').addEventListener('input', function() {
+                document.getElementById('backKneeBendMultiplierValue').textContent = this.value;
+            });
+            document.getElementById('gaitAmplitudeLeft').addEventListener('input', function() {
+                document.getElementById('gaitAmplitudeLeftValue').textContent = this.value;
+            });
+            document.getElementById('stepFrequencyLeft').addEventListener('input', function() {
+                document.getElementById('stepFrequencyLeftValue').textContent = this.value;
+            });
+            document.getElementById('frontKneeBendLeft').addEventListener('input', function() {
+                document.getElementById('frontKneeBendLeftValue').textContent = this.value;
+            });
+            document.getElementById('backKneeBendMaxLeft').addEventListener('input', function() {
+                document.getElementById('backKneeBendMaxLeftValue').textContent = this.value;
+            });
+            document.getElementById('backKneeBendMultiplierLeft').addEventListener('input', function() {
+                document.getElementById('backKneeBendMultiplierLeftValue').textContent = this.value;
+            });
+            document.getElementById('elbowBend').addEventListener('input', function() {
+                document.getElementById('elbowBendValue').textContent = this.value;
+            });
+            document.getElementById('elbowBendLeft').addEventListener('input', function() {
+                document.getElementById('elbowBendLeftValue').textContent = this.value;
+            });
+            document.getElementById('torsoThickness').addEventListener('input', function() {
+                document.getElementById('torsoThicknessValue').textContent = this.value;
+            });
+            document.getElementById('torsoThicknessLeft').addEventListener('input', function() {
+                document.getElementById('torsoThicknessLeftValue').textContent = this.value;
+            });
+            document.getElementById('crouchExtraBend').addEventListener('input', function() {
+                document.getElementById('crouchExtraBendValue').textContent = this.value;
+            });
+            document.getElementById('manualSpeedMultiplier').addEventListener('input', function() {
+                document.getElementById('manualSpeedMultiplierValue').textContent = this.value;
+            });
+            document.getElementById('tapCurveExponent').addEventListener('input', function() {
+                document.getElementById('tapCurveExponentValue').textContent = this.value;
+            });
+            document.getElementById('armSwingMultiplier').addEventListener('input', function() {
+                document.getElementById('armSwingMultiplierValue').textContent = this.value;
+            });
+            document.getElementById('armSwingMultiplierLeft').addEventListener('input', function() {
+                document.getElementById('armSwingMultiplierLeftValue').textContent = this.value;
+            });
+            // New hurdle sliders event listeners
+            hurdleLeadKneeBendSelect.addEventListener('input', function() {
+                document.getElementById('hurdleLeadKneeBendValue').textContent = this.value;
+            });
+            hurdleTrailKneeBendSelect.addEventListener('input', function() {
+                document.getElementById('hurdleTrailKneeBendValue').textContent = this.value;
+            });
+
+            // Toggle Controls Button Event Listener
+            toggleControlsBtn.addEventListener('click', () => {
+                showUI = !showUI; // Toggle the visibility flag
+                if (showUI) {
+                    controlsDiv.style.display = 'grid'; // Show the control panel
+                    toggleControlsBtn.textContent = 'Hide UI';
+                } else {
+                    controlsDiv.style.display = 'none'; // Hide the control panel
+                    toggleControlsBtn.textContent = 'Show UI';
+                }
+                draw(); // Redraw the canvas to update debug info visibility
+            });
+
+            // New: Event listener for the "Hide All Hurdles" checkbox
+            hideHurdlesCheckbox.addEventListener('change', () => {
+                areHurdlesHidden = hideHurdlesCheckbox.checked;
+                // When hurdles are hidden, ensure they are not "fallen" and reset cleared count for new run
+                if (areHurdlesHidden) {
+                    hurdles.forEach(hurdle => hurdle.isFallen = false);
+                    hurdlesClearedCount = 0;
+                    lastHurdleIndexPassed = -1;
+                    hurdle3Cleared = false;
+                    hurdle4Cleared = false;
+                    speedPenaltyActive = false; // Disable any active penalty
+                }
+                draw(); // Redraw to immediately hide/show hurdles
+            });
+
+            // New: Event listener for the "Enable Hurdle Sounds" checkbox
+            enableHurdleSoundsCheckbox.addEventListener('change', () => {
+                areHurdleSoundsEnabled = enableHurdleSoundsCheckbox.checked;
+                // If sounds are disabled, mute the synths
+                if (!areHurdleSoundsEnabled) {
+                    hurdleSynth.volume.value = -Infinity;
+                    awwPlayer.volume.value = -Infinity;
+                } else {
+                    // If sounds are enabled, set them to a reasonable volume
+                    hurdleSynth.volume.value = 0; // 0dB
+                    awwPlayer.volume.value = 0; // 0dB
+                }
+                draw(); // Redraw to update debug info
+            });
+
+            // Game Mode Radio Button Event Listener
+            gameModeRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    gameMode = e.target.value;
+                    resetGame(); // Reset game to apply new mode
+                });
+            });
+
+            // Action Button Event Listener (for Start/Reset)
+            actionButton.addEventListener('click', async () => { // Made async to await Tone.context.resume()
+                // IMPORTANT: Resume AudioContext on user gesture for reliable audio playback
+                if (Tone.context.state !== 'running') {
+                    try {
+                        await Tone.context.resume();
+                        console.log("AudioContext resumed by action button click.");
+                    }
+                    catch (e) {
+                        console.error("Failed to resume AudioContext on action button click:", e);
+                    }
+                }
+
+                if (gameState === 'idle') {
+                    startCountdown();
+                } else if (gameState === 'running' || gameState === 'finished') {
+                    resetGame();
+                }
+            });
+
+            // Modal close button and play again button listeners
+            closeButton.addEventListener('click', hideModal);
+            playAgainBtn.addEventListener('click', resetGame);
+            window.addEventListener('click', (e) => {
+                if (e.target === resultModal) {
+                    hideModal();
+                }
+            });
+
+
+            // Populate hurdles array
+            for (let i = 0; i < numberOfHurdles; i++) {
+                const meterPosition = initialHurdleMeter + (i * hurdleInterval);
+                const lane = 4; // All hurdles in lane 4
+                hurdles.push({ meterPosition: meterPosition, lane: lane, isFallen: false });
+            }
+
+            // Load high jump distances on initial load
+            loadHighJumpDistances();
+
+            // Initialize y position after all constants are defined
+            // Call resetGame() first to initialize players array and other game state
+            resetGame(); 
+            resizeCanvas(); // Then call resizeCanvas to set dimensions and draw for the first time
+
+            loop();
+        }); // End of DOMContentLoaded listener
+</script>
+</body>
+</html>
