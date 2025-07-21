@@ -27,13 +27,37 @@
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex flex-col items-center justify-center p-4 relative">
-    <button id="toggleControls" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md mb-4 transition duration-300 ease-in-out transform hover:scale-105">
-        Toggle Controls
+    <!-- Back Button -->
+    <button onclick="window.location.href='https://zapback100.github.io/Dads-Games/index.html'"
+            class="absolute top-4 left-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 z-10">
+        Back
     </button>
+
+    <div class="flex flex-row items-center justify-center gap-4 mb-4">
+        <button id="toggleControls" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+            Toggle Controls
+        </button>
+        <label for="difficulty" class="flex items-center space-x-2">
+            <span class="font-semibold text-gray-800">Difficulty:</span>
+            <select id="difficulty" class="mt-1 block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </label>
+        <!-- Player Name Input - Moved here -->
+        <label for="playerName" class="flex items-center space-x-2">
+            <span class="font-semibold text-gray-800">Your Name:</span>
+            <input type="text" id="playerName" placeholder="Enter your name" class="mt-1 block w-full pl-3 pr-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm">
+        </label>
+    </div>
+
     <div id="ui-controls-container" class="bg-white p-6 rounded-xl shadow-lg mb-6 w-full max-w-4xl hidden">
         <p class="text-gray-700 mb-4 text-center text-sm sm:text-base">Press <span class="font-bold text-blue-600">SPACEBAR</span> to start/reset. Use A/D to move left/right, W to jump, S to crouch. In manual mode, alternate <span class="font-bold text-blue-600">X/C</span> for forward movement.</p>
         <div id="controls" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm sm:text-base">
             <div class="flex flex-col space-y-2">
+                <!-- Player Name Input was here, now moved above -->
+
                 <label for="manualMode" class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" id="manualMode" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" checked>
                     <span>Manual Run Mode</span>
@@ -174,6 +198,9 @@
     </div>
     <canvas id="c" width="600" height="400" class="shadow-xl"></canvas>
     <script>
+        // Global variable for number of lanes
+        const numLanes = 8;
+
         document.addEventListener('DOMContentLoaded', () => {
             const canvas = document.getElementById('c');
             const ctx = canvas.getContext('2d');
@@ -188,7 +215,8 @@
             const armSwingAmplitudeLeftSelect = document.getElementById('armSwingAmplitudeLeft');
             const uiControlsContainer = document.getElementById('ui-controls-container');
             const toggleControlsButton = document.getElementById('toggleControls');
-
+            const difficultySelect = document.getElementById('difficulty'); // Difficulty dropdown
+            const playerNameInput = document.getElementById('playerName'); // Player Name Input
 
             const currentSpeedDisplay = document.getElementById('currentSpeedDisplay');
             const tappingFrequencyDisplay = document.getElementById('tappingFrequencyDisplay');
@@ -204,6 +232,8 @@
                 "Turbo", "Velocity", "Quickstep", "Windrunner", "Shadow", "Phantom"
             ];
             let usedNames = new Set(); // To ensure unique names for each race
+
+            let currentDifficulty = difficultySelect.value; // Initialize difficulty
 
             // Function to get a random pacing strategy
             function getRandomPacingStrategy() {
@@ -223,14 +253,48 @@
                 return name;
             }
 
-            // Function to generate a random base speed for computers
-            function getRandomBaseSpeedMps() {
-                // Range from 3.0 m/s (approx 33s for 100m) to 5.0 m/s (approx 20s for 100m)
-                return 3.0 + Math.random() * 2.0; // Between 3.0 and 5.0 m/s
+            // Function to generate a random base speed for computers based on difficulty
+            function getRandomBaseSpeedMps(difficulty) {
+                switch (difficulty) {
+                    case 'easy':
+                        return 2.5 + Math.random() * 1.5; // Slower range: 2.5 - 4.0 m/s
+                    case 'medium':
+                        // Adjusted range for medium difficulty
+                        return 2.8 + Math.random() * 1.5; // Range: 2.8 - 4.3 m/s
+                    case 'hard':
+                        // Adjusted range for hard difficulty to target ~24s for 100m (avg 4.16 m/s)
+                        return 3.5 + Math.random() * 0.6; // Range: 3.5 - 4.1 m/s
+                    default:
+                        return 3.0 + Math.random() * 2.0; // Default to medium
+                }
             }
 
             // Function to create a new computer runner
-            function createComputerRunner(laneId) {
+            function createComputerRunner(laneId, difficulty) {
+                let speedVarianceMps, fatigueRate, recoveryRate;
+
+                switch (difficulty) {
+                    case 'easy':
+                        speedVarianceMps = 0.05 + Math.random() * 0.1; // Less variance
+                        fatigueRate = 0.00003 + Math.random() * 0.00003; // Slower fatigue
+                        recoveryRate = 0.00006 + Math.random() * 0.00006; // Faster recovery
+                        break;
+                    case 'medium':
+                        speedVarianceMps = 0.08 + Math.random() * 0.12; // Slightly less variance than hard
+                        fatigueRate = 0.00005 + Math.random() * 0.00005; // Slightly slower fatigue than hard
+                        recoveryRate = 0.00005 + Math.random() * 0.00005; // Slightly faster recovery than hard
+                        break;
+                    case 'hard':
+                        speedVarianceMps = 0.12 + Math.random() * 0.18; // More variance
+                        fatigueRate = 0.00007 + Math.random() * 0.00007; // Faster fatigue
+                        recoveryRate = 0.00003 + Math.random() * 0.00003; // Slower recovery
+                        break;
+                    default: // Default to medium
+                        speedVarianceMps = 0.1 + Math.random() * 0.15;
+                        fatigueRate = 0.00006 + Math.random() * 0.00006;
+                        recoveryRate = 0.00004 + Math.random() * 0.00004;
+                }
+
                 return {
                     id: getUniqueRandomName(), // Assign a unique name
                     lane: laneId,
@@ -247,20 +311,20 @@
                     finishTime: 0,
                     isPlayer: false,
                     expression: 'neutral', // Default expression for computers
-                    baseSpeedMps: getRandomBaseSpeedMps(),
-                    speedVarianceMps: 0.1 + Math.random() * 0.15, // Increased variance
+                    baseSpeedMps: getRandomBaseSpeedMps(difficulty),
+                    speedVarianceMps: speedVarianceMps,
                     color: '#000',
                     legColor: `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`, // Random leg color
                     finalIdleX: 0,
                     currentVx: 0,
                     desiredVx: 0,
                     pacingStrategy: getRandomPacingStrategy(), // Assign a random strategy
-                    paceFactor: 0.9 + Math.random() * 0.2, // Initial random pace factor
+                    paceFactor: 0.9 + Math.random() * 0.2, // Initial random pace between 0.9 and 1.1
                     paceChangeTimer: 0,
                     paceChangeInterval: 1000 + Math.random() * 2000, // Change pace every 1-3 seconds
                     fatigue: 0, // Accumulates fatigue
-                    fatigueRate: 0.00006 + Math.random() * 0.00006, // Varied and slightly higher fatigue rate
-                    recoveryRate: 0.00004 + Math.random() * 0.00004, // Varied and slightly higher recovery rate
+                    fatigueRate: fatigueRate,
+                    recoveryRate: recoveryRate,
                     burstCooldown: 0, // Cooldown for speed bursts
                     burstDuration: 0, // How long the current burst lasts
                     prevPosition: 0 // To track overtakes
@@ -268,47 +332,52 @@
             }
 
             // Runner data structure
-            let runners = [
-                // Player runner
-                {
-                    id: 'Player', // Changed to 'Player' for consistency in display
-                    lane: 2,
-                    position: 0,
-                    y: 0, // Calculated dynamically
-                    vy: 0,
-                    dir: 1,
-                    onGround: true,
-                    stepCycle: 0,
-                    isCrouching: false,
-                    isFinished: false, // True when crosses finish line
-                    reachedRelaxPoint: false, // True when crosses finishLine + 2m
-                    startTime: 0,
-                    finishTime: 0,
-                    isPlayer: true,
-                    expression: 'neutral', // Player's expression
-                    color: '#000', // Body color (black)
-                    legColor: '#000', // Black legs for player (hip to knee)
-                    finalIdleX: 0, // To store the final random idle position
-                    tapTimes: [], // Store timestamps of recent taps
-                    tapFrequency: 0, // Calculated taps per second
-                    currentVx: 0, // Current horizontal velocity
-                    desiredVx: 0, // Target horizontal velocity
-                    isCelebrating: false, // For celebration animation
-                    celebrationStartTime: 0,
-                    prevPosition: 0 // To track overtakes
-                }
-            ];
+            let runners = [];
 
-            const numLanes = 8;
-            // Add computer runners to all other lanes
-            for (let i = 1; i <= numLanes; i++) {
-                if (i !== 2) { // Player is in lane 2
-                    runners.push(createComputerRunner(i));
+            function initializeRunners() {
+                const playerName = playerNameInput.value.trim(); // Get player name from input
+                runners = [
+                    // Player runner
+                    {
+                        id: playerName === '' ? 'Player' : playerName, // Use entered name or default
+                        lane: 2,
+                        position: 0,
+                        y: 0, // Calculated dynamically
+                        vy: 0,
+                        dir: 1,
+                        onGround: true,
+                        stepCycle: 0,
+                        isCrouching: false,
+                        isFinished: false, // True when crosses finish line
+                        reachedRelaxPoint: false, // True when crosses finishLine + 2m
+                        startTime: 0,
+                        finishTime: 0,
+                        isPlayer: true,
+                        expression: 'neutral', // Player's expression
+                        color: '#000', // Body color (black)
+                        legColor: '#000', // Black legs for player (hip to knee)
+                        finalIdleX: 0, // To store the final random idle position
+                        tapTimes: [], // Store timestamps of recent taps
+                        tapFrequency: 0, // Calculated taps per second
+                        currentVx: 0, // Current horizontal velocity
+                        desiredVx: 0, // Target horizontal velocity
+                        isCelebrating: false, // For celebration animation
+                        celebrationStartTime: 0,
+                        prevPosition: 0 // To track overtakes
+                    }
+                ];
+
+                // Add computer runners to all other lanes
+                for (let i = 1; i <= numLanes; i++) {
+                    if (i !== 2) { // Player is in lane 2
+                        runners.push(createComputerRunner(i, currentDifficulty));
+                    }
                 }
+                // Sort runners by lane for consistent drawing order
+                runners.sort((a, b) => a.lane - b.lane);
             }
-            // Sort runners by lane for consistent drawing order
-            runners.sort((a, b) => a.lane - b.låne);
 
+            initializeRunners(); // Initial setup of runners
 
             let blinkTimer = 0;
             let isBlinking = false;
@@ -400,7 +469,7 @@
             }
 
             window.addEventListener('resize', resizeCanvas);
-            resizeCanvas();
+            resizeCanvas(); // Call once to set initial dimensions
 
             document.addEventListener('keydown', e => {
                 keys[e.key.toLowerCase()] = true;
@@ -814,8 +883,8 @@
                     bestTimes.forEach((entry, index) => {
                         let rankText = `${index + 1}${getOrdinalSuffix(index + 1)}.`;
                         let medal = '';
-                        if (index === 0) medal = '🥇';
-                        else if (index === 1) medal = '�';
+                        if (index === 0) medal = '�';
+                        else if (index === 1) medal = '🥈';
                         else if (index === 2) medal = '🥉';
 
                         ctx.fillText(`${rankText} ${medal} ${entry.id}: ${formatTime(entry.time)}`, padding, yOffset);
@@ -898,6 +967,12 @@
                 lastTapKey = ''; // Reset for new race
                 bestTimes = []; // Clear top times for new race
 
+                // Update the player's name before starting the countdown
+                const player = runners.find(r => r.isPlayer);
+                if (player) {
+                    player.id = playerNameInput.value.trim() === '' ? 'Player' : playerNameInput.value.trim();
+                }
+
                 // Start crowd sound
                 Tone.context.resume().then(() => {
                     if (crowdPlayer.state !== 'started') {
@@ -925,6 +1000,7 @@
 
             function resetGame() {
                 gameState = 'idle';
+                initializeRunners(); // Re-initialize runners based on current difficulty
                 runners.forEach(runner => {
                     runner.position = 0; // Reset to 0 for the idle state
                     runner.startTime = 0;
@@ -1043,7 +1119,7 @@
                     ctx.stroke();
 
                     // Only draw 100m sign if it's not the finish line
-                    if (meter % 10 === 0 && meter >= 0 && meter <= 100 && meter !== 100) {
+                    if (meter % 10 === 0 && meter >= 0 && meter < 100) { // Changed condition to < 100
                         ctx.fillStyle = 'white';
                         ctx.fillRect(draw_x - 15 * (canvas.width / 600), groundY - 25 * (canvas.height / 400), 30 * (canvas.width / 600), 15 * (canvas.height / 400));
                         ctx.fillStyle = 'black';
@@ -1629,6 +1705,12 @@
             // Toggle UI controls visibility
             toggleControlsButton.addEventListener('click', () => {
                 uiControlsContainer.classList.toggle('hidden');
+            });
+
+            // Difficulty change listener
+            difficultySelect.addEventListener('change', () => {
+                currentDifficulty = difficultySelect.value;
+                resetGame(); // Reset game to apply new difficulty settings
             });
 
             loop();
