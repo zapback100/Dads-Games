@@ -119,7 +119,7 @@
             y: 0, // Will be set dynamically
             width: 13 * GAME_PIXEL_MAGNIFICATION, // Original player width is 13 pixels
             height: 8 * GAME_PIXEL_MAGNIFICATION, // Original player height is 8 pixels
-            speed: 5,
+            speed: 7, // Increased player speed for more responsiveness
             dx: 0,
             lives: 3,
             isHit: false,
@@ -129,7 +129,7 @@
 
         // Player Bullets
         const bullets = [];
-        const bulletSpeed = 7;
+        const bulletSpeed = 7; // Remains at 7, within 4-8px/frame
         const bulletWidth = 2; // Adjusted for classic size
         const bulletHeight = 8; // Adjusted for classic size
         let canShoot = true; // Controls player shooting cooldown
@@ -174,9 +174,14 @@
         let alienAnimationTimer = 15; // Frames before switching animation frame (slower animation)
 
         let alienMoveTimer = 0; // Timer for alien movement steps
-        const initialAlienMoveInterval = 55; // Frames for initial alien move (closer to original 52 interrupts)
+        const initialAlienMoveInterval = 40; // Adjusted for faster initial alien movement
         const minAlienMoveInterval = 5; // Minimum frames for alien move (faster, ~5 interrupts)
         let currentAlienMoveInterval = initialAlienMoveInterval; // Current interval
+
+        // For wave-like, desynchronized alien motion
+        let tickCounter = 0; // Counts frames within the current movement interval
+        const wavePhases = [0, 2, 4, 6, 8]; // Delay each row's move by frames. Max value should be less than minAlienMoveInterval.
+
 
         // Alien Sprites (pixel maps) - Frame 1
         const alien10PtsMap_frame1 = [ // Crab - 11x8 original pixels
@@ -261,29 +266,22 @@
 
         // Barriers
         const barriers = [];
-        const BARRIER_PIXEL_WIDTH_ORIG = 10; // Original pixel width of barrier sprite
-        const BARRIER_PIXEL_HEIGHT_ORIG = 8; // Original pixel height of barrier sprite
-        const barrierDestructionRadius = 1; // Radius of pixels to destroy around hit point (e.g., 1 means 3x3 block)
+        const BARRIER_PIXEL_WIDTH_ORIG = 32; // Updated to 32x32 pixels as per spec
+        const BARRIER_PIXEL_HEIGHT_ORIG = 32; // Updated to 32x32 pixels as per spec
+        const barrierDestructionRadius = 2; // Increased radius for more noticeable damage (user suggested "small groups")
 
-        // Barrier Pixel Map (from image_88e65c.png) - 10x8 pixels
-        const baseBarrierPixelMap = [
-            [0,0,1,1,1,1,1,1,0,0],
-            [0,1,1,1,1,1,1,1,1,0],
-            [1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,0,0,0,0,1,1,1], 
-            [1,0,0,0,0,0,0,0,0,1], 
-        ];
+        // Barrier Pixel Map (new 32x32 solid block)
+        // Creates a 2D array filled with 1s (solid pixels)
+        const baseBarrierPixelMap = Array(BARRIER_PIXEL_HEIGHT_ORIG).fill(0).map(() => Array(BARRIER_PIXEL_WIDTH_ORIG).fill(1));
 
         // UFO
         const ufo = {
             x: 0,
-            y: 30, // Position at the top
+            // UFO Y position: around Y = 32 px (original pixels)
+            y: 32 * GAME_PIXEL_MAGNIFICATION, // Position at the top, adjusted for scale
             width: 16 * GAME_PIXEL_MAGNIFICATION, // Original UFO width is 16 pixels
             height: 7 * GAME_PIXEL_MAGNIFICATION, // Original UFO height is 7 pixels
-            speed: 1.5, // SLOWER UFO
+            speed: 1.5, // Remains at 1.5, within 1-2px/frame
             alive: false,
             direction: 1, // 1 for right, -1 for left
             points: 250 // Updated to 250 points for shooting UFO
@@ -330,6 +328,7 @@
         const shootSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/shoot.wav'; 
         // Corrected invader killed sound URL to use jsDelivr for CORS compatibility
         const invaderKilledSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/invaderkilled.wav'; 
+        const playerExplosionSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/explosion.wav'; // New player explosion sound URL
 
         let ufoPlayer = null; 
         let ufoSynth = null; 
@@ -337,6 +336,7 @@
         let synthesizedShootSynth = null; 
         let invaderKilledPlayer = null; 
         let synthesizedInvaderKilledSynth = null; 
+        let playerExplosionPlayer = null; // New player explosion sound player
 
         function setupAudio() {
             // Initialize Tone.js context
@@ -391,8 +391,27 @@
                 }).toDestination();
             }
 
+            // Player explosion sound
+            if (playerExplosionSoundUrl) {
+                playerExplosionPlayer = new Tone.Player({
+                    url: playerExplosionSoundUrl,
+                    autostart: false,
+                    volume: -5 // Slightly louder for player death
+                }).toDestination();
 
-            // Alien explosion sound (used for player death and UFO)
+                playerExplosionPlayer.onerror = (e) => {
+                    console.error("Error loading player explosion sound:", e);
+                    playerExplosionPlayer = null;
+                    // Fallback to general explodeSynth if specific player explosion sound fails
+                    console.warn("Falling back to synthesized explosion sound for player death.");
+                };
+            } else {
+                // If no URL provided, just use the general explodeSynth
+                playerExplosionPlayer = null;
+            }
+
+
+            // Alien explosion sound (used for UFO) - kept as NoiseSynth
             explodeSynth = new Tone.NoiseSynth({
                 noise: { type: "white" },
                 envelope: {
@@ -547,29 +566,32 @@
         // Initialize barriers
         function initBarriers() {
             barriers.length = 0;
-            // Position barriers slightly higher to make space for bottom UI
-            const greenLineY = canvas.height - 40 * scaleY;
-            const desiredGapFromGreenLine = 60 * scaleY; // Increased gap for more space
             
-            // Calculate barrier dimensions using GAME_PIXEL_MAGNIFICATION
+            // Positioning constants based on original game layout (using original pixel values)
+            // Top of shield is 168 original pixels from top (200 - 32)
+            const SHIELD_Y_ORIG = 200 - BARRIER_PIXEL_HEIGHT_ORIG; 
+
+            // Calculate barrier dimensions in canvas pixels
             const barrierWidth = BARRIER_PIXEL_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX; 
             const barrierHeight = BARRIER_PIXEL_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY; 
 
-            const barrierY = greenLineY - desiredGapFromGreenLine - barrierHeight;
+            // Calculate barrier Y position in canvas pixels
+            const barrierY = SHIELD_Y_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY;
 
             const numBarriers = 4;
             // Calculate total width of barriers including spacing for even distribution
-            const totalBarriersWidth = numBarriers * barrierWidth; 
-            const totalSpacing = canvas.width - totalBarriersWidth;
-            const barrierSpacing = totalSpacing / (numBarriers + 1); // Evenly distribute
+            const totalBarriersRenderedWidth = numBarriers * barrierWidth;
+            const totalHorizontalSpace = canvas.width;
+            const spacingBetweenBarriers = (totalHorizontalSpace - totalBarriersRenderedWidth) / (numBarriers + 1); // Distribute evenly with padding on ends
 
             for (let i = 0; i < numBarriers; i++) {
                 barriers.push({
-                    x: barrierSpacing + i * (barrierWidth + barrierSpacing),
+                    x: spacingBetweenBarriers + i * (barrierWidth + spacingBetweenBarriers),
                     y: barrierY,
                     width: barrierWidth,
                     height: barrierHeight,
-                    pixelMap: JSON.parse(JSON.stringify(baseBarrierPixelMap))
+                    // Deep copy the base pixel map so each barrier has its own mutable copy
+                    pixelMap: JSON.parse(JSON.stringify(baseBarrierPixelMap)) 
                 });
             }
         }
@@ -763,8 +785,28 @@
         function getAlienAbsPos(alien) {
             let alienWidth_ORIG = (alien.gridRow === 0) ? ALIEN_SPRITE_WIDTH_30_PTS_ORIG : ALIEN_SPRITE_WIDTH_10_20_PTS_ORIG;
             
-            // Calculate position relative to the formation's base
-            const x = formationBaseX + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
+            let localOffset = 0;
+            // Ensure alien.gridRow is a valid index for wavePhases
+            const rowDelay = wavePhases[alien.gridRow] !== undefined ? wavePhases[alien.gridRow] : 0;
+
+            // Only apply local offset if the tickCounter has passed the row's delay
+            // And if the alien is alive and not exploding (so it's part of the moving formation)
+            // Also, ensure tickCounter is within the valid range for the current movement interval
+            if (alien.alive && !alien.isExploding && tickCounter >= rowDelay) {
+                let effectiveStep_ORIG = alienStep_ORIG;
+                if (aliensAliveCount === 1) {
+                    if (alienDirection === 1) {
+                        effectiveStep_ORIG = 3;
+                    } else {
+                        effectiveStep_ORIG = 2;
+                    }
+                }
+                // This localOffset is the *current step* being visually applied
+                localOffset = effectiveStep_ORIG * GAME_PIXEL_MAGNIFICATION * alienDirection * scaleX;
+            }
+
+            // Calculate position relative to the formation's base, plus the local offset
+            const x = formationBaseX + localOffset + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
             const y = formationBaseY + alien.gridRow * (ALIEN_SPRITE_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
             return { x, y };
         }
@@ -871,18 +913,19 @@
             ctx.textAlign = 'left';
 
             // SCORE<1>
-            ctx.fillText(`SCORE<1>`, 20 * scaleX, 30 * scaleY); // Adjusted X position
-            ctx.fillText(`${String(score).padStart(4, '0')}`, 20 * scaleX, 55 * scaleY); // Adjusted X position
+            // Original Y = 8-16px, so 10px original is a good center for text
+            ctx.fillText(`SCORE<1>`, 20 * scaleX, 10 * GAME_PIXEL_MAGNIFICATION * scaleY); 
+            ctx.fillText(`${String(score).padStart(4, '0')}`, 20 * scaleX, 25 * GAME_PIXEL_MAGNIFICATION * scaleY); 
 
             // HI-SCORE
             ctx.textAlign = 'center';
-            ctx.fillText(`HI-SCORE`, canvas.width / 2, 30 * scaleY);
-            ctx.fillText(`${String(highScore).padStart(4, '0')}`, canvas.width / 2, 55 * scaleY);
+            ctx.fillText(`HI-SCORE`, canvas.width / 2, 10 * GAME_PIXEL_MAGNIFICATION * scaleY);
+            ctx.fillText(`${String(highScore).padStart(4, '0')}`, canvas.width / 2, 25 * GAME_PIXEL_MAGNIFICATION * scaleY);
 
             // SCORE<2> (Placeholder for 2-player score)
             ctx.textAlign = 'right';
-            ctx.fillText(`SCORE<2>`, canvas.width - 20 * scaleX, 30 * scaleY); // Adjusted X position
-            ctx.fillText(`0000`, canvas.width - 20 * scaleX, 55 * scaleY); // Adjusted X position
+            ctx.fillText(`SCORE<2>`, canvas.width - 20 * scaleX, 10 * GAME_PIXEL_MAGNIFICATION * scaleY); 
+            ctx.fillText(`0000`, canvas.width - 20 * scaleX, 25 * GAME_PIXEL_MAGNIFICATION * scaleY); 
 
             // Bottom line for lives and credit
             ctx.fillStyle = '#0f0'; // Green line
@@ -1001,7 +1044,7 @@
             });
         }
 
-        // Move aliens (synchronized block movement)
+        // Move aliens (synchronized block movement with wave effect)
         function moveAliens() {
             alienMoveTimer--;
 
@@ -1014,6 +1057,9 @@
                     currentAlienMoveInterval = minAlienMoveInterval;
                 }
                 alienMoveTimer = currentAlienMoveInterval;
+
+                // Reset tickCounter for the new movement cycle
+                tickCounter = 0; 
 
                 // Play invader movement sound in sync with the step
                 try {
@@ -1044,10 +1090,14 @@
 
                 aliens.forEach(alien => {
                     if (alien.alive && !alien.isExploding) {
-                        const alienPos = getAlienAbsPos(alien); // Get calculated position
-                        if (alienPos.x < leftmostAlienX) leftmostAlienX = alienPos.x;
-                        if (alienPos.x + (alien.width * scaleX) > rightmostAlienX) rightmostAlienX = alienPos.x + (alien.width * scaleX);
-                        if (alienPos.y + (alien.height * scaleY) > currentLowestAlienY) currentLowestAlienY = alienPos.y + (alien.height * scaleY);
+                        // For edge detection, use the base position + its grid offset (without localOffset for this check)
+                        let alienWidth_ORIG = (alien.gridRow === 0) ? ALIEN_SPRITE_WIDTH_30_PTS_ORIG : ALIEN_SPRITE_WIDTH_10_20_PTS_ORIG;
+                        const currentAlienX = formationBaseX + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
+                        const currentAlienY = formationBaseY + alien.gridRow * (ALIEN_SPRITE_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
+
+                        if (currentAlienX < leftmostAlienX) leftmostAlienX = currentAlienX;
+                        if (currentAlienX + (alien.width * scaleX) > rightmostAlienX) rightmostAlienX = currentAlienX + (alien.width * scaleX);
+                        if (currentAlienY + (alien.height * scaleY) > currentLowestAlienY) currentLowestAlienY = currentAlienY + (alien.height * scaleY);
                     }
                 });
 
@@ -1069,23 +1119,28 @@
 
                 // Toggle animation frame for the entire formation (after a full cycle)
                 alienAnimationFrame = 1 - alienAnimationFrame; 
-                // The alienAnimationTimer is not needed for toggling anymore, as it's directly tied to the move interval.
-                // It was previously used for a separate animation speed, but now animation is synced to movement.
 
                 // Check if aliens reached player's level (after potential downward move)
                 if (aliensAliveCount > 0 && currentLowestAlienY > player.y) {
                     player.lives--;
                     player.isHit = true;
                     player.hitTimer = player.hitDuration;
+
+                    // Play specific player explosion sound if available, otherwise fallback
+                    try {
+                        if (playerExplosionPlayer) { playerExplosionPlayer.start(); }
+                        else { explodeSynth.triggerAttackRelease('8n'); } // Fallback
+                    } catch (e) {
+                        console.log('Player explosion sound playback failed:', e);
+                        explodeSynth.triggerAttackRelease('8n'); // Ensure fallback plays on error
+                    }
+
                     if (player.lives <= 0) {
-                        explodeSynth.triggerAttackRelease('8n'); 
                         playerDeathTimer = 90; 
                     } else {
-                        // Reset aliens to top, clear bullets/bombs, but keep score
-                        initAliens(); // Re-initialize aliens for next wave (resets individual alien positions)
-                        bullets.length = 0;
+                        // Player hit, but not game over yet. Reset player position, clear bombs.
+                        player.x = canvas.width / 2 - (player.width * scaleX) / 2;
                         bombs.length = 0;
-                        bulletOnScreen = false; 
                     }
                 }
             }
@@ -1145,7 +1200,7 @@
                         if (bullet.x < alienPos.x + (alien.width * scaleX) &&
                             bullet.x + (bullet.width * scaleX) > alienPos.x &&
                             bullet.y < alienPos.y + (alien.height * scaleY) &&
-                            bullet.y + (alien.height * scaleY) > alienPos.y) { // Changed bullet.height to alien.height for collision check
+                            bullet.y + (bullet.height * scaleY) > alienPos.y) { 
                             
                             alien.health--;
                             bullets.splice(bulletIndex, 1); 
@@ -1230,7 +1285,7 @@
                     console.log('UFO explosion sound playback failed:', e);
                 }
             }
-        }); // This closing parenthesis was misplaced. Removed it from here.
+        }); 
 
             // Alien bombs vs Player
             bombs.forEach((bomb, bombIndex) => {
@@ -1245,8 +1300,16 @@
                     player.isHit = true;
                     player.hitTimer = player.hitDuration; // Start invincibility timer
 
+                    // Play specific player explosion sound if available, otherwise fallback
+                    try {
+                        if (playerExplosionPlayer) { playerExplosionPlayer.start(); }
+                        else { explodeSynth.triggerAttackRelease('8n'); } // Fallback
+                    } catch (e) {
+                        console.log('Player explosion sound playback failed:', e);
+                        explodeSynth.triggerAttackRelease('8n'); // Ensure fallback plays on error
+                    }
+
                     if (player.lives <= 0) {
-                        explodeSynth.triggerAttackRelease('8n'); 
                         playerDeathTimer = 90; 
                     } else {
                         // Player hit, but not game over yet. Reset player position, clear bombs.
@@ -1366,14 +1429,8 @@
                 }
             });
 
-            // alienAnimationTimer is now only for a separate animation, not tied to movement
-            // The animation frame for aliens is toggled in moveAliens when the whole formation moves.
-            // alienAnimationTimer--;
-            // if (alienAnimationTimer <= 0) {
-            //     alienAnimationFrame = 1 - alienAnimationFrame; // Toggle between 0 and 1
-            //     alienAnimationTimer = 15; // Reset timer
-            // }
-
+            // Increment tickCounter for wave effect
+            tickCounter++; 
 
             if (aliensAliveCount === 0) {
                 // Win condition - start next wave
