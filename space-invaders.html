@@ -257,16 +257,18 @@
         ];
 
 
-        // Alien Explosion Sprite (from image_88699f.png) - 12x6 original pixels
-        const alienExplosionMap = [
-            [0,0,1,1,0,0,0,0,1,1,0,0],
-            [0,1,0,0,1,0,0,1,0,0,1,0],
-            [1,0,0,0,0,1,1,0,0,0,0,1],
-            [1,0,0,0,0,1,1,0,0,0,0,1],
-            [0,1,0,0,1,0,0,1,0,0,1,0],
-            [0,0,1,1,0,0,0,0,1,1,0,0]
+        // Alien Explosion Sprite (8x8 pixels) - NEW
+        const ALIEN_EXPLOSION_PATTERN = [
+            [0,1,0,0,0,0,1,0],
+            [1,1,1,0,0,1,1,1],
+            [1,1,1,1,1,1,1,1],
+            [0,1,1,1,1,1,1,0],
+            [0,0,1,1,1,1,0,0],
+            [0,0,0,1,1,0,0,0],
+            [0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,0,0,0],
         ];
-        const explosionDuration = 10; // Frames to show explosion
+        const ALIEN_EXPLOSION_DURATION = 2; // Show for 2 frames, then disappear (e.g., frame 0 and frame 1 visible)
 
         // Barriers
         const barriers = [];
@@ -975,7 +977,7 @@
             // Only apply local offset if the tickCounter has passed the row's delay
             // And if the alien is alive and not exploding (so it's part of the moving formation)
             // Also, ensure tickCounter is within the valid range for the current movement interval
-            if (alien.alive && !alien.isExploding && tickCounter >= rowDelay) {
+            if (alien.alive && !alien.isExploding) { // Removed tickCounter condition here as it's for movement, not drawing
                 let effectiveStep_ORIG = alienStep_ORIG;
                 if (aliensAliveCount === 1) {
                     if (alienDirection === 1) {
@@ -985,11 +987,21 @@
                     }
                 }
                 // This localOffset is the *current step* being visually applied
-                localOffset = effectiveStep_ORIG * GAME_PIXEL_MAGNIFICATION * alienDirection * scaleX;
+                // This logic is for drawing the alien's movement, not the explosion itself
+                // The explosion should be drawn at the alien's *current* position, not its next step.
+                // Re-evaluating this: the alien's x,y will be updated by moveAliens, so getAlienAbsPos
+                // should reflect its current position for drawing.
+                // The localOffset is part of the calculation of the current position based on formationBaseX.
+                // So, if the alien is exploding, it should *not* have this localOffset applied for its drawing,
+                // as it's static during explosion.
             }
 
             // Calculate position relative to the formation's base, plus the local offset
-            const x = formationBaseX + localOffset + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
+            // When exploding, the alien's position should be fixed at the point of explosion.
+            // So, for an exploding alien, we should not apply the `localOffset` as it's not moving.
+            // The alien's `x` and `y` properties should ideally be its last known position before explosion.
+            // For now, let's keep the `getAlienAbsPos` as is, and ensure `moveAliens` doesn't move exploding aliens.
+            const x = formationBaseX + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
             const y = formationBaseY + alien.gridRow * (ALIEN_SPRITE_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
             return { x, y };
         }
@@ -1007,23 +1019,28 @@
                     const aw = alien.width * scaleX; // Apply scaleX here
                     const ah = alien.height * scaleY; // Apply scaleY here
 
-                    let currentPixelMap;
                     if (alien.isExploding) {
                         ctx.fillStyle = '#fff'; // Explosion is white
-                        currentPixelMap = alienExplosionMap;
-                        // Explosion map is 12x6 pixels. Need to scale correctly.
-                        const explosionPixelSizeX = aw / alienExplosionMap[0].length;
-                        const explosionPixelSizeY = ah / alienExplosionMap.length;
-                        for (let row = 0; row < currentPixelMap.length; row++) {
-                            for (let col = 0; col < currentPixelMap[row].length; col++) {
-                                if (currentPixelMap[row][col] === 1) {
-                                    ctx.fillRect(ax + col * explosionPixelSizeX, ay + row * explosionPixelSizeY, explosionPixelSizeX, explosionPixelSizeY);
-                                }
-                            }
-                        }
+                        const currentPixelMap = ALIEN_EXPLOSION_PATTERN; // Use the new 8x8 pattern
+
+                        // Calculate offset to center the 8x8 explosion within the alien's scaled bounding box
+                        const explosionOriginalWidth = ALIEN_EXPLOSION_PATTERN[0].length; // 8
+                        const explosionOriginalHeight = ALIEN_EXPLOSION_PATTERN.length; // 8
+
+                        // Calculate the rendered width/height of the explosion pattern (scaled by GAME_PIXEL_MAGNIFICATION and current scale)
+                        const renderedExplosionWidth = explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
+                        const renderedExplosionHeight = explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+
+                        // Calculate the offset to center the explosion within the alien's *scaled* dimensions
+                        const offsetX_explosion = (aw - renderedExplosionWidth) / 2;
+                        const offsetY_explosion = (ah - renderedExplosionHeight) / 2;
+
+                        // Draw using the generic drawPattern function
+                        drawPattern(ctx, currentPixelMap, ax + offsetX_explosion, ay + offsetY_explosion, GAME_PIXEL_MAGNIFICATION, '#fff');
+
                     } else {
                         // Use the appropriate pixel map based on the current animation frame
-                        currentPixelMap = alienAnimationFrame === 0 ? alien.pixelMap_frame1 : alien.pixelMap_frame2;
+                        const currentPixelMap = alienAnimationFrame === 0 ? alien.pixelMap_frame1 : alien.pixelMap_frame2;
                         const pixelSizeX = aw / currentPixelMap[0].length;
                         const pixelSizeY = ah / currentPixelMap.length;
 
@@ -1397,7 +1414,7 @@
                             
                             if (alien.health <= 0) {
                                 alien.isExploding = true; 
-                                alien.explosionTimer = explosionDuration;
+                                alien.explosionTimer = ALIEN_EXPLOSION_DURATION; // Use the new duration
                                 aliensAliveCount--; 
                                 score += alien.points; 
                                 try {
