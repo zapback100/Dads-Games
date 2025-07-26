@@ -360,6 +360,7 @@
         // Corrected invader killed sound URL to use jsDelivr for CORS compatibility
         const invaderKilledSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/invaderkilled.wav'; 
         const playerExplosionSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/explosion.wav'; // New player explosion sound URL
+        const ufoExplosionSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/16-ufo-down-101soundboards.mp3'; // New UFO explosion sound URL
 
         let ufoPlayer = null; 
         let ufoSynth = null; 
@@ -368,6 +369,7 @@
         let invaderKilledPlayer = null; 
         let synthesizedInvaderKilledSynth = null; 
         let playerExplosionPlayer = null; // New player explosion sound player
+        let ufoExplosionPlayer = null; // New UFO explosion sound player
 
         function setupAudio() {
             // Initialize Tone.js context
@@ -442,6 +444,22 @@
                 playerExplosionPlayer = null;
             }
 
+            // UFO Explosion Sound - NEW
+            if (ufoExplosionSoundUrl) {
+                ufoExplosionPlayer = new Tone.Player({
+                    url: ufoExplosionSoundUrl,
+                    autostart: false,
+                    volume: -5 // Adjust volume as needed
+                }).toDestination();
+                ufoExplosionPlayer.onerror = (e) => {
+                    console.error("Error loading UFO explosion sound:", e);
+                    ufoExplosionPlayer = null;
+                    console.warn("Falling back to synthesized UFO explosion sound.");
+                };
+            } else {
+                ufoExplosionPlayer = null;
+            }
+
 
             // Alien explosion sound (used for UFO) - kept as NoiseSynth
             explodeSynth = new Tone.NoiseSynth({
@@ -497,6 +515,13 @@
 
         // Function to play UFO explosion sound (code-generated, improved version)
         function playUfoExplosionSound() {
+            // First, try to play the specific UFO explosion sound if loaded
+            if (ufoExplosionPlayer) {
+                ufoExplosionPlayer.start();
+                return; // Play the loaded sound and exit
+            }
+
+            // Fallback to synthesized sound if the specific sound is not available
             const duration = 0.25;
 
             // Create white noise
@@ -1788,3 +1813,4 @@
     </script>
 </body>
 </html>
+
