@@ -190,10 +190,16 @@
         const numStars = 100;
 
         // Tone.js Synths for sound effects
-        let shootSynth, explodeSynth, bombSynth, ufoSynth;
+        let shootSynth, explodeSynth, bombSynth;
 
-        // Variable to hold the Tone.Player for the UFO sound if loaded from external file
-        let ufoPlayer = null; 
+        // --- UFO Sound Configuration ---
+        // You can paste your external sound URL here.
+        // If this variable is empty or null, the game will use the synthesized UFO sound.
+        // Example: 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav'
+        const ufoSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav'; // <--- PASTE YOUR UFO SOUND URL HERE
+
+        let ufoPlayer = null; // Will hold the Tone.Player for external sound
+        let ufoSynth = null; // Will hold the Tone.PulseOscillator for synthesized sound
 
         function setupAudio() {
             // Initialize Tone.js context
@@ -234,39 +240,29 @@
                 }
             }).toDestination();
 
-            // --- UFO Sound Configuration ---
-            // OPTION 1: Programmatically generated UFO sound (current default due to environment restrictions)
-            ufoSynth = new Tone.PulseOscillator('A3', 0.2).toDestination(); // Lower frequency, narrower pulse width
-            ufoSynth.volume.value = -10; // Reduce UFO volume by 10dB
+            // Initialize UFO sound based on whether a URL is provided
+            if (ufoSoundUrl) {
+                ufoPlayer = new Tone.Player({
+                    url: ufoSoundUrl,
+                    loop: true, // Loop the sound
+                    autostart: false,
+                    volume: -10 // Adjust volume as needed
+                }).toDestination();
 
-            /*
-            // OPTION 2: How to load an external UFO sound (e.g., from GitHub)
-            // IMPORTANT: This functionality is restricted in the current sandboxed environment
-            // but will work if you host your game on a web server (e.g., GitHub Pages).
-            // Uncomment the code below and comment out OPTION 1 when deploying to your own server.
-
-            // const ufoSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav';
-            // ufoPlayer = new Tone.Player({
-            //     url: ufoSoundUrl,
-            //     loop: true, // Loop the sound
-            //     autostart: false,
-            //     volume: -10 // Adjust volume as needed
-            // }).toDestination();
-
-            // // Handle loading errors (important for debugging)
-            // ufoPlayer.onerror = (e) => {
-            //     console.error("Error loading UFO sound:", e);
-            //     // Fallback to synthesized sound if loading fails
-            //     ufoSynth = new Tone.PulseOscillator('A3', 0.2).toDestination();
-            //     ufoSynth.volume.value = -10;
-            //     console.warn("Falling back to synthesized UFO sound.");
-            // };
-
-            // // If using the external player, modify the start/stop logic for UFO
-            // // In moveUFO():
-            // //   if (ufo.alive && !ufoPlayer.isPlaying) { ufoPlayer.start(); }
-            // //   if (!ufo.alive && ufoPlayer.isPlaying) { ufoPlayer.stop(); }
-            */
+                // Handle loading errors (important for debugging)
+                ufoPlayer.onerror = (e) => {
+                    console.error("Error loading UFO sound:", e);
+                    // Fallback to synthesized sound if loading fails
+                    ufoPlayer = null; // Clear the player
+                    ufoSynth = new Tone.PulseOscillator('A3', 0.2).toDestination();
+                    ufoSynth.volume.value = -10;
+                    console.warn("Falling back to synthesized UFO sound.");
+                };
+            } else {
+                // Fallback to programmatically generated UFO sound
+                ufoSynth = new Tone.PulseOscillator('A3', 0.2).toDestination(); // Lower frequency, narrower pulse width
+                ufoSynth.volume.value = -10; // Reduce UFO volume by 10dB
+            }
         }
 
         // Show custom message box
@@ -780,20 +776,18 @@
                 if (ufo.direction === 1 && ufo.x > canvas.width) {
                     ufo.alive = false;
                     try {
-                        // If using external player, stop it
-                        if (ufoPlayer) { ufoPlayer.stop(); }
-                        // Else, stop the synthesized sound
-                        else if (ufoSynth) { ufoSynth.stop(); }
+                        // Use ufoPlayer if available, otherwise ufoSynth
+                        if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
+                        else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
                     } catch (e) {
                         console.log('UFO sound stop failed:', e);
                     }
                 } else if (ufo.direction === -1 && ufo.x + ufo.width < 0) {
                     ufo.alive = false;
                     try {
-                        // If using external player, stop it
-                        if (ufoPlayer) { ufoPlayer.stop(); }
-                        // Else, stop the synthesized sound
-                        else if (ufoSynth) { ufoSynth.stop(); }
+                        // Use ufoPlayer if available, otherwise ufoSynth
+                        if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
+                        else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
                     } catch (e) {
                         console.log('UFO sound stop failed:', e);
                     }
@@ -807,9 +801,8 @@
                     ufo.x = ufo.direction === 1 ? -ufo.width : canvas.width; // Start off-screen
                     ufoSpawnTimer = ufoSpawnInterval + Math.random() * ufoSpawnInterval; // Next spawn interval
                     try {
-                        // If using external player, start it
+                        // Use ufoPlayer if available, otherwise ufoSynth
                         if (ufoPlayer) { ufoPlayer.start(); }
-                        // Else, start the synthesized sound
                         else if (ufoSynth) { ufoSynth.start(); }
                     } catch (e) {
                         console.log('UFO sound start failed:', e);
@@ -904,10 +897,9 @@
                     score += ufo.points; // Add UFO points
                     try {
                         explodeSynth.triggerAttackRelease('8n'); // Play explosion sound for UFO
-                        // If using external player, stop it
-                        if (ufoPlayer) { ufoPlayer.stop(); }
-                        // Else, stop the synthesized sound
-                        else if (ufoSynth) { ufoSynth.stop(); }
+                        // Use ufoPlayer if available, otherwise ufoSynth
+                        if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
+                        else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
                     } catch (e) {
                         console.log('UFO explosion sound playback failed:', e);
                     }
