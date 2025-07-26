@@ -122,9 +122,13 @@
             speed: 7, // Increased player speed for more responsiveness
             dx: 0,
             lives: 3,
-            isHit: false,
-            hitTimer: 0,
-            hitDuration: 120 // Frames of invincibility/flash
+            isExploding: false, // True when explosion animation is active
+            explosionFrameCounter: 0, // Counts frames for explosion animation
+            explosionStateDuration: 10, // Frames for each explosion visual state (e.g., 10 frames per pattern/blank)
+            explosionTotalDuration: 40, // Total frames for the full explosion sequence (4 states * 10 frames/state)
+            isInvincible: false, // True during invincibility period after respawn
+            invincibilityTimer: 0, // Timer for invincibility period
+            invincibilityDuration: 120 // Frames of invincibility (flashing)
         };
 
         // Player Bullets
@@ -690,8 +694,10 @@
             currentAlienMoveInterval = initialAlienMoveInterval; 
             alienMoveTimer = 0; // Reset timer
             currentNoteIndex = 0; // Reset note index for sound loop
-            player.isHit = false;
-            player.hitTimer = 0;
+            player.isExploding = false; // Reset explosion state
+            player.explosionFrameCounter = 0; // Reset explosion frame counter
+            player.isInvincible = false; // Reset invincibility state
+            player.invincibilityTimer = 0; // Reset invincibility timer
             bulletOnScreen = false; // Reset bullet state
             ufo.alive = false; // Ensure UFO is not active
             ufoSpawnTimer = ufoSpawnInterval; // Reset UFO timer
@@ -819,27 +825,126 @@
         ];
         const playerColor = '#0f0'; // Green player ship
 
+        // Explosion patterns (8x8)
+        const explosionPattern1 = [
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [1,0,0,1,1,0,0,1],
+            [0,0,1,0,0,1,0,0],
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [1,0,0,1,1,0,0,1],
+            [0,0,1,0,0,1,0,0]
+        ];
+
+        const explosionPattern2 = [
+            [1,0,0,0,0,0,0,1],
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [0,0,0,1,1,0,0,0],
+            [0,0,0,1,1,0,0,0],
+            [0,0,1,0,0,1,0,0],
+            [0,1,0,0,0,0,1,0],
+            [1,0,0,0,0,0,0,1]
+        ];
+
+        const blankPattern = [
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0]
+        ];
+
+        // Generic function to draw a pixel pattern
+        function drawPattern(ctx, pattern, x, y, pixelMagnification, color) {
+            ctx.fillStyle = color;
+            const patternWidth = pattern[0].length;
+            const patternHeight = pattern.length;
+
+            // Calculate the size of each "pixel" in the pattern on the canvas
+            const pixelSizeX = pixelMagnification * scaleX;
+            const pixelSizeY = pixelMagnification * scaleY;
+
+            for (let row = 0; row < patternHeight; row++) {
+                for (let col = 0; col < patternWidth; col++) {
+                    if (pattern[row][col] === 1) {
+                        ctx.fillRect(x + col * pixelSizeX, y + row * pixelSizeY, pixelSizeX, pixelSizeY);
+                    }
+                }
+            }
+        }
+
         // Draw player (retro spaceship - blocky design)
         function drawPlayer() {
-            if (player.isHit && Math.floor(player.hitTimer / 10) % 2 === 0) {
-                // Flash effect when hit
-                return;
-            }
             const px = player.x;
             const py = player.y;
             const pw = player.width; // Already scaled
             const ph = player.height; // Already scaled
 
-            const pixelSizeX = pw / playerPattern[0].length; // Each pixel of the pattern maps to this many canvas pixels
-            const pixelSizeY = ph / playerPattern.length;
+            // Calculate center for 8x8 explosion patterns within 13x8 player area
+            const explosionPatternWidth = 8; // Original pixels
+            const explosionPatternHeight = 8; // Original pixels
+            // Offset to center the 8x8 explosion within the 13x8 player sprite area
+            const offsetX = (pw - (explosionPatternWidth * GAME_PIXEL_MAGNIFICATION * scaleX)) / 2;
+            const offsetY = (ph - (explosionPatternHeight * GAME_PIXEL_MAGNIFICATION * scaleY)) / 2;
 
-            ctx.fillStyle = playerColor;
-            for (let row = 0; row < playerPattern.length; row++) {
-                for (let col = 0; col < playerPattern[row].length; col++) {
-                    if (playerPattern[row][col] === 1) {
-                        ctx.fillRect(px + col * pixelSizeX, py + row * pixelSizeY, pixelSizeX, pixelSizeY);
+
+            if (player.isExploding) {
+                // Determine which explosion frame to draw
+                const currentExplosionStateIndex = Math.floor(player.explosionFrameCounter / player.explosionStateDuration);
+                let patternToDraw;
+
+                switch (currentExplosionStateIndex) {
+                    case 0: // Explosion Frame 1
+                        patternToDraw = explosionPattern1;
+                        break;
+                    case 1: // Blank Frame
+                        patternToDraw = blankPattern;
+                        break;
+                    case 2: // Explosion Frame 2
+                        patternToDraw = explosionPattern2;
+                        break;
+                    case 3: // Blank Frame
+                        patternToDraw = blankPattern;
+                        break;
+                    default: // After the animation sequence, draw blank
+                        patternToDraw = blankPattern;
+                        break;
+                }
+                
+                // Draw the explosion/blank pattern centered on the player's last known position
+                // Use drawPattern with the specific pixel magnification for the explosion patterns
+                drawPattern(ctx, patternToDraw, px + offsetX, py + offsetY, GAME_PIXEL_MAGNIFICATION, '#fff'); // Explosion is white
+
+                player.explosionFrameCounter++;
+                if (player.explosionFrameCounter >= player.explosionTotalDuration) {
+                    player.isExploding = false; // Explosion animation finished
+                    player.explosionFrameCounter = 0; // Reset counter
+                    
+                    if (player.lives > 0) {
+                        // Respawn player
+                        player.x = canvas.width / 2 - (player.width) / 2; // Reset player position
+                        player.isInvincible = true;
+                        player.invincibilityTimer = player.invincibilityDuration;
                     }
                 }
+            } else if (player.isInvincible) {
+                // Player is invincible and flashing (not exploding)
+                // The flashing logic: draw every other 10 frames
+                if (Math.floor(player.invincibilityTimer / 10) % 2 === 0) {
+                    drawPattern(ctx, playerPattern, px, py, GAME_PIXEL_MAGNIFICATION, playerColor);
+                }
+                player.invincibilityTimer--;
+                if (player.invincibilityTimer <= 0) {
+                    player.isInvincible = false;
+                }
+            } else {
+                // Draw player normally (not exploding, not invincible)
+                drawPattern(ctx, playerPattern, px, py, GAME_PIXEL_MAGNIFICATION, playerColor);
             }
         }
 
@@ -1054,6 +1159,9 @@
 
         // Move player
         function movePlayer() {
+            // Player does not move if exploding
+            if (player.isExploding) return;
+
             player.x += player.dx * scaleX;
             if (player.x < 0) player.x = 0;
             if (player.x + (player.width) > canvas.width) player.x = canvas.width - (player.width);
@@ -1194,26 +1302,7 @@
 
                 // Check if aliens reached player's level (after potential downward move)
                 if (aliensAliveCount > 0 && currentLowestAlienY > player.y) {
-                    player.lives--;
-                    player.isHit = true;
-                    player.hitTimer = player.hitDuration;
-
-                    // Play specific player explosion sound if available, otherwise fallback
-                    try {
-                        if (playerExplosionPlayer) { playerExplosionPlayer.start(); }
-                        else { explodeSynth.triggerAttackRelease('8n'); } // Fallback
-                    } catch (e) {
-                        console.log('Player explosion sound playback failed:', e);
-                        explodeSynth.triggerAttackRelease('8n'); // Ensure fallback plays on error
-                    }
-
-                    if (player.lives <= 0) {
-                        playerDeathTimer = 90; 
-                    } else {
-                        // Player hit, but not game over yet. Reset player position, clear bombs.
-                        player.x = canvas.width / 2 - (player.width * scaleX) / 2;
-                        bombs.length = 0;
-                    }
+                    handlePlayerHit(); // Trigger player hit logic
                 }
             }
         }
@@ -1259,6 +1348,31 @@
                     }
                 }
             }
+        }
+
+        // Handle player hit logic
+        function handlePlayerHit() {
+            if (player.isExploding || player.isInvincible) return; // Cannot be hit if already exploding or invincible
+
+            player.lives--;
+            player.isExploding = true;
+            player.explosionFrameCounter = 0; // Start explosion animation from beginning
+
+            // Play specific player explosion sound if available, otherwise fallback
+            try {
+                if (playerExplosionPlayer) { playerExplosionPlayer.start(); }
+                else { explodeSynth.triggerAttackRelease('8n'); } // Fallback
+            } catch (e) {
+                console.log('Player explosion sound playback failed:', e);
+                explodeSynth.triggerAttackRelease('8n'); // Ensure fallback plays on error
+            }
+
+            bombs.length = 0; // Clear all bombs on player hit
+
+            if (player.lives <= 0) {
+                playerDeathTimer = 90; // Game over pause
+            }
+            // Respawn logic (including invincibility) is now handled in drawPlayer after explosion completes
         }
 
 
@@ -1359,33 +1473,14 @@
 
             // Alien bombs vs Player
             bombs.forEach((bomb, bombIndex) => {
-                if (!player.isHit && // Only hit if not invincible
+                if (!player.isExploding && !player.isInvincible && // Only hit if not exploding or invincible
                     bomb.x < player.x + (player.width) && // Use player.width (already scaled)
                     bomb.x + (bomb.width * scaleX) > player.x &&
                     bomb.y < player.y + (player.height) && // Use player.height (already scaled)
                     bomb.y + (bomb.height * scaleY) > player.y) {
                     
                     bombsToRemove.push(bombIndex); // Mark bomb for removal
-                    player.lives--;
-                    player.isHit = true;
-                    player.hitTimer = player.hitDuration; // Start invincibility timer
-
-                    // Play specific player explosion sound if available, otherwise fallback
-                    try {
-                        if (playerExplosionPlayer) { playerExplosionPlayer.start(); }
-                        else { explodeSynth.triggerAttackRelease('8n'); } // Fallback
-                    } catch (e) {
-                        console.log('Player explosion sound playback failed:', e);
-                        explodeSynth.triggerAttackRelease('8n'); // Ensure fallback plays on error
-                    }
-
-                    if (player.lives <= 0) {
-                        playerDeathTimer = 90; 
-                    } else {
-                        // Player hit, but not game over yet. Reset player position, clear bombs.
-                        player.x = canvas.width / 2 - (player.width) / 2; // Use player.width (already scaled)
-                        bombs.length = 0; // Clear all bombs on player hit
-                    }
+                    handlePlayerHit(); // Call the new handler
                     return; 
                 }
 
@@ -1460,14 +1555,14 @@
                 return; // Skip all game logic if paused
             }
 
-            // Handle player death pause
+            // Handle player death pause (after explosion animation and if lives are zero)
             if (playerDeathTimer > 0) {
                 playerDeathTimer--;
                 if (playerDeathTimer === 0) {
                     gameOver = true; // Transition to game over after pause
                 }
-                // Only draw, do not move or check collisions during pause
-                drawPlayer();
+                // Only draw, do not move or check collisions during this pause
+                drawPlayer(); // Still draw the player (or blank if exploding finished)
                 drawBullets();
                 drawBombs();
                 drawAliens();
@@ -1514,11 +1609,11 @@
                 highScore = score;
             }
 
-            // Player hit timer
-            if (player.isHit) {
-                player.hitTimer--;
-                if (player.hitTimer <= 0) {
-                    player.isHit = false;
+            // Player invincibility timer (moved from player.isHit)
+            if (player.isInvincible) {
+                player.invincibilityTimer--;
+                if (player.invincibilityTimer <= 0) {
+                    player.isInvincible = false;
                 }
             }
 
@@ -1567,8 +1662,8 @@
                 return; // Consume 'p' event
             }
 
-            if (!gameStarted || gameOver || playerDeathTimer > 0 || gamePaused) {
-                // If game not started, over, in death pause, or paused, ignore other controls
+            if (!gameStarted || gameOver || player.isExploding || playerDeathTimer > 0 || gamePaused) {
+                // If game not started, over, exploding, in death pause, or paused, ignore other controls
                 return;
             }
 
@@ -1603,7 +1698,7 @@
         // Mobile Touch Controls
         leftButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameStarted || gameOver || playerDeathTimer > 0 || gamePaused) return;
+            if (!gameStarted || gameOver || player.isExploding || playerDeathTimer > 0 || gamePaused) return;
             player.dx = -player.speed;
         });
         leftButton.addEventListener('touchend', (e) => {
@@ -1613,7 +1708,7 @@
 
         rightButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameStarted || gameOver || playerDeathTimer > 0 || gamePaused) return;
+            if (!gameStarted || gameOver || player.isExploding || playerDeathTimer > 0 || gamePaused) return;
             player.dx = player.speed;
         });
         rightButton.addEventListener('touchend', (e) => {
@@ -1623,7 +1718,7 @@
 
         shootButton.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (!gameStarted || gameOver || !canShoot || bulletOnScreen || playerDeathTimer > 0 || gamePaused) return;
+            if (!gameStarted || gameOver || !canShoot || bulletOnScreen || player.isExploding || playerDeathTimer > 0 || gamePaused) return;
             bullets.push({
                 x: player.x + (player.width) / 2 - (bulletWidth * scaleX) / 2, // Use player.width (already scaled)
                 y: player.y - (bulletHeight * scaleY),
@@ -1676,4 +1771,3 @@
     </script>
 </body>
 </html>
-
