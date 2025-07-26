@@ -117,8 +117,8 @@
         const player = {
             x: 0, // Will be set dynamically
             y: 0, // Will be set dynamically
-            width: 13 * GAME_PIXEL_MAGNIFICATION, // Original player width is 13 pixels
-            height: 8 * GAME_PIXEL_MAGNIFICATION, // Original player height is 8 pixels
+            width: 13 * GAME_PIXEL_MAGNIFICATION, // Original player width is 13 pixels (updated)
+            height: 8 * GAME_PIXEL_MAGNIFICATION, // Original player height is 8 pixels (updated)
             speed: 7, // Increased player speed for more responsiveness
             dx: 0,
             lives: 3,
@@ -270,9 +270,32 @@
         const BARRIER_PIXEL_HEIGHT_ORIG = 32; // Updated to 32x32 pixels as per spec
         const barrierDestructionRadius = 2; // Increased radius for more noticeable damage (user suggested "small groups")
 
-        // Barrier Pixel Map (new 32x32 solid block)
-        // Creates a 2D array filled with 1s (solid pixels)
-        const baseBarrierPixelMap = Array(BARRIER_PIXEL_HEIGHT_ORIG).fill(0).map(() => Array(BARRIER_PIXEL_WIDTH_ORIG).fill(1));
+        // SHIELD TEMPLATE (22x16 pixels - based on user's provided pattern and common arcade patterns)
+        const SHIELD_PIXEL_TEMPLATE = [
+            [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0], // Top crenelation
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1], // Bottom notches
+            [1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1]  // More bottom notches
+        ];
+
+        const MASK_W = SHIELD_PIXEL_TEMPLATE[0].length; // 22
+        const MASK_H = SHIELD_PIXEL_TEMPLATE.length;    // 16
+        // Calculate offsets to center the 22x16 mask within the 32x32 barrier slot
+        const OFFSET_X_ORIG = Math.floor((BARRIER_PIXEL_WIDTH_ORIG - MASK_W) / 2); // (32-22)/2 = 5
+        const OFFSET_Y_ORIG = 8; // 8 original pixels down from top of 32x32 slot (as per user's "UNIT" suggestion)
+
 
         // UFO
         const ufo = {
@@ -322,6 +345,8 @@
         const invaderMoveNotes = ['C3', 'B2', 'A#2', 'A2']; // Chromatic descending pattern
         let currentNoteIndex = 0; // To keep track of the note in the sequence
 
+        // Global AudioContext for Web Audio API
+        let audioCtx;
 
         // --- Sound Configurations ---
         const ufoSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav';
@@ -341,6 +366,7 @@
         function setupAudio() {
             // Initialize Tone.js context
             Tone.start();
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)(); // Initialize global AudioContext
 
             // Player shoot sound
             // Prioritize external URL, fallback to synthesized
@@ -462,6 +488,41 @@
                 envelope: { attack: 0.005, decay: 0.05, sustain: 0.01, release: 0.05 }
             }).toDestination();
         }
+
+        // Function to play UFO explosion sound (code-generated, improved version)
+        function playUfoExplosionSound() {
+            const duration = 0.25;
+
+            // Create white noise
+            const bufferSize = audioCtx.sampleRate * duration;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+
+            // Create bandpass filter with descending frequency
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = "bandpass";
+            filter.frequency.setValueAtTime(1800, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + duration);
+
+            // Volume envelope
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+            // Connect and play
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+            noise.stop(audioCtx.currentTime + duration);
+        }
+
 
         // Show custom message box
         function showMessageBox(message, buttonText = "OK", callback = null) {
@@ -585,13 +646,29 @@
             const spacingBetweenBarriers = (totalHorizontalSpace - totalBarriersRenderedWidth) / (numBarriers + 1); // Distribute evenly with padding on ends
 
             for (let i = 0; i < numBarriers; i++) {
+                // Initialize a 32x32 pixel map for each barrier, all zeros initially
+                const newPixelMap = Array(BARRIER_PIXEL_HEIGHT_ORIG).fill(0).map(() => Array(BARRIER_PIXEL_WIDTH_ORIG).fill(0));
+
+                // Stamp the SHIELD_PIXEL_TEMPLATE onto the newPixelMap with offsets
+                for (let row = 0; row < MASK_H; row++) {
+                    for (let col = 0; col < MASK_W; col++) {
+                        if (SHIELD_PIXEL_TEMPLATE[row][col] === 1) {
+                            const targetRow = row + OFFSET_Y_ORIG;
+                            const targetCol = col + OFFSET_X_ORIG;
+                            if (targetRow >= 0 && targetRow < BARRIER_PIXEL_HEIGHT_ORIG &&
+                                targetCol >= 0 && targetCol < BARRIER_PIXEL_WIDTH_ORIG) {
+                                newPixelMap[targetRow][targetCol] = 1;
+                            }
+                        }
+                    }
+                }
+
                 barriers.push({
                     x: spacingBetweenBarriers + i * (barrierWidth + spacingBetweenBarriers),
                     y: barrierY,
                     width: barrierWidth,
                     height: barrierHeight,
-                    // Deep copy the base pixel map so each barrier has its own mutable copy
-                    pixelMap: JSON.parse(JSON.stringify(baseBarrierPixelMap)) 
+                    pixelMap: newPixelMap // Use the newly created pixel map
                 });
             }
         }
@@ -729,36 +806,37 @@
             ctx.textAlign = 'left'; // Reset to default
         }
 
+        // Player Pixel Pattern (13x8) - Classic Ship
+        const playerPattern = [
+            [0,0,0,0,0,1,0,0,0,0,0,0,0], // Top cannon pixel
+            [0,0,0,0,1,1,1,1,1,0,0,0,0], // Next row
+            [0,0,0,1,1,1,1,1,1,1,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,0],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1], // Main body
+            [1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1]  // Base
+        ];
+        const playerColor = '#0f0'; // Green player ship
+
         // Draw player (retro spaceship - blocky design)
         function drawPlayer() {
             if (player.isHit && Math.floor(player.hitTimer / 10) % 2 === 0) {
                 // Flash effect when hit
                 return;
             }
-            ctx.fillStyle = '#0f0'; // Green player ship
             const px = player.x;
             const py = player.y;
-            const pw = player.width * scaleX; // Apply scaleX here
-            const ph = player.height * scaleY; // Apply scaleY here
+            const pw = player.width; // Already scaled
+            const ph = player.height; // Already scaled
 
-            // Original Player Pixel Map (13x8 pixels)
-            const playerPixelMap = [
-                [0,0,0,0,0,1,0,0,0,0,0,0,0], // Cannon tip
-                [0,0,0,0,1,1,1,1,1,0,0,0,0],
-                [0,0,0,1,1,1,1,1,1,1,0,0,0],
-                [0,0,1,1,1,1,1,1,1,1,1,0,0],
-                [0,1,1,1,1,1,1,1,1,1,1,1,0],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1], // Main body
-                [1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1],
-            ];
+            const pixelSizeX = pw / playerPattern[0].length; // Each pixel of the pattern maps to this many canvas pixels
+            const pixelSizeY = ph / playerPattern.length;
 
-            const pixelSizeX = pw / playerPixelMap[0].length;
-            const pixelSizeY = ph / playerPixelMap.length;
-
-            for (let row = 0; row < playerPixelMap.length; row++) {
-                for (let col = 0; col < playerPixelMap[row].length; col++) {
-                    if (playerPixelMap[row][col] === 1) {
+            ctx.fillStyle = playerColor;
+            for (let row = 0; row < playerPattern.length; row++) {
+                for (let col = 0; col < playerPattern[row].length; col++) {
+                    if (playerPattern[row][col] === 1) {
                         ctx.fillRect(px + col * pixelSizeX, py + row * pixelSizeY, pixelSizeX, pixelSizeY);
                     }
                 }
@@ -936,28 +1014,19 @@
             ctx.fillText(`${player.lives}`, 20 * scaleX, canvas.height - 15 * scaleY); // Adjusted Y to be below the line
 
             // Draw lives as player ship icons at bottom left
-            const lifeIconWidth = player.width * 0.8 * scaleX; // Adjusted life icon size
-            const lifeIconHeight = player.height * 0.8 * scaleY; // Adjusted life icon size
+            const lifeIconWidth = player.width; // Use player's actual width (already scaled)
+            const lifeIconHeight = player.height; // Use player's actual height (already scaled)
             const lifeStartX = 40 * scaleX; // Start position for icons (adjusted)
             const lifeY = canvas.height - 35 * scaleY; // Y position for life icons (aligned with green line)
 
-            // Player Pixel Map (from image_88e65c.png) - 13x8 pixels (re-used for life icons)
-            const lifePlayerPixelMap = [
-                [0,0,0,0,0,1,0,0,0,0,0,0,0], 
-                [0,0,0,0,1,1,1,1,1,0,0,0,0],
-                [0,0,0,1,1,1,1,1,1,1,0,0,0],
-                [0,0,1,1,1,1,1,1,1,1,1,0,0],
-                [0,1,1,1,1,1,1,1,1,1,1,1,0],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1], 
-                [1,1,1,1,1,1,1,1,1,1,1,1,1],
-                [1,1,1,1,1,1,1,1,1,1,1,1,1],
-            ];
+            // Player Pixel Map (re-used for life icons)
+            const lifePlayerPixelMap = playerPattern; // Use the same pattern as the player
 
             for (let i = 0; i < player.lives; i++) {
-                const lx = lifeStartX + (lifeIconWidth + 5 * scaleX) * i; // Spacing between icons
+                const lx = lifeStartX + (lifeIconWidth + 5 * GAME_PIXEL_MAGNIFICATION * scaleX) * i; // Spacing between icons
                 const ly = lifeY;
 
-                ctx.fillStyle = '#0f0'; // Green for life icons
+                ctx.fillStyle = playerColor; // Green for life icons
                 const iconPixelSizeX = lifeIconWidth / lifePlayerPixelMap[0].length;
                 const iconPixelSizeY = lifeIconHeight / lifePlayerPixelMap.length;
 
@@ -987,7 +1056,7 @@
         function movePlayer() {
             player.x += player.dx * scaleX;
             if (player.x < 0) player.x = 0;
-            if (player.x + (player.width * scaleX) > canvas.width) player.x = canvas.width - (player.width * scaleX);
+            if (player.x + (player.width) > canvas.width) player.x = canvas.width - (player.width);
         }
 
         // Move player bullets
@@ -1059,7 +1128,10 @@
                 alienMoveTimer = currentAlienMoveInterval;
 
                 // Reset tickCounter for the new movement cycle
-                tickCounter = 0; 
+                tickCounter++; // Increment tickCounter here for alien movement
+                if (tickCounter >= currentAlienMoveInterval) {
+                    tickCounter = 0; // Reset after a full interval
+                }
 
                 // Play invader movement sound in sync with the step
                 try {
@@ -1073,10 +1145,10 @@
                 // Determine the step size for this full formation move
                 let effectiveStep_ORIG = alienStep_ORIG; // Default to 2 original pixels
                 if (aliensAliveCount === 1) {
-                    if (alienDirection === 1) { // Moving right
-                        effectiveStep_ORIG = 3; // 3 original pixels per step
-                    } else { // Moving left
-                        effectiveStep_ORIG = 2; // 2 original pixels per step
+                    if (alienDirection === 1) {
+                        effectiveStep_ORIG = 3;
+                    } else {
+                        effectiveStep_ORIG = 2;
                     }
                 }
                 
@@ -1192,6 +1264,9 @@
 
         // Check collisions
         function checkCollisions() {
+            // Array to hold bullets marked for removal
+            const bulletsToRemove = [];
+
             // Player bullets vs Aliens
             bullets.forEach((bullet, bulletIndex) => {
                 aliens.forEach((alien, alienIndex) => {
@@ -1200,10 +1275,10 @@
                         if (bullet.x < alienPos.x + (alien.width * scaleX) &&
                             bullet.x + (bullet.width * scaleX) > alienPos.x &&
                             bullet.y < alienPos.y + (alien.height * scaleY) &&
-                            bullet.y + (bullet.height * scaleY) > alienPos.y) { 
+                            bullet.y + (alien.height * scaleY) > alienPos.y) { // Corrected bullet.y + bullet.height
                             
                             alien.health--;
-                            bullets.splice(bulletIndex, 1); 
+                            bulletsToRemove.push(bulletIndex); // Mark bullet for removal
                             bulletOnScreen = false; 
                             
                             if (alien.health <= 0) {
@@ -1223,79 +1298,74 @@
                 });
 
                 // Player bullets vs Barriers
-                barriers.forEach((barrier, barrierIndex) => {
-                    if (bullet.x < barrier.x + barrier.width &&
-                        bullet.x + (bullet.width * scaleX) > barrier.x &&
-                        bullet.y < barrier.y + barrier.height &&
-                        bullet.y + (bullet.height * scaleY) > barrier.y) {
+                barriers.forEach((barrier) => {
+                    // Calculate hit pixel in barrier's local coordinates (32x32 grid)
+                    const pixelSizeX = barrier.width / BARRIER_PIXEL_WIDTH_ORIG;
+                    const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
+
+                    // Calculate bullet's center relative to the barrier's top-left corner
+                    let hitX_abs = (bullet.x + (bullet.width * scaleX) / 2); 
+                    let hitY_abs = (bullet.y + (bullet.height * scaleY) / 2); 
+
+                    // Convert to barrier's local 32x32 pixel map indices
+                    let hitCol_32x32 = Math.floor((hitX_abs - barrier.x) / pixelSizeX);
+                    let hitRow_32x32 = Math.floor((hitY_abs - barrier.y) / pixelSizeY);
+
+                    // Check if the bullet is within the barrier's 32x32 bounding box
+                    if (hitCol_32x32 >= 0 && hitCol_32x32 < BARRIER_PIXEL_WIDTH_ORIG &&
+                        hitRow_32x32 >= 0 && hitRow_32x32 < BARRIER_PIXEL_HEIGHT_ORIG) {
                         
-                        // Calculate hit pixel in barrier's local coordinates
-                        const pixelSizeX = barrier.width / BARRIER_PIXEL_WIDTH_ORIG;
-                        const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
-
-                        let hitX = (bullet.x + (bullet.width * scaleX) / 2) - barrier.x;
-                        let hitY = (bullet.y + (bullet.height * scaleY) / 2) - barrier.y;
-
-                        // Convert to pixel map indices
-                        let hitCol = Math.floor(hitX / pixelSizeX);
-                        let hitRow = Math.floor(hitY / pixelSizeY);
-
-                        // Ensure indices are within bounds
-                        hitCol = Math.max(0, Math.min(hitCol, BARRIER_PIXEL_WIDTH_ORIG - 1));
-                        hitRow = Math.max(0, Math.min(hitRow, BARRIER_PIXEL_HEIGHT_ORIG - 1));
-
-                        // "Destroy" a small area around the hit point
-                        for (let r = -barrierDestructionRadius; r <= barrierDestructionRadius; r++) {
-                            for (let c = -barrierDestructionRadius; c <= barrierDestructionRadius; c++) {
-                                const targetRow = hitRow + r;
-                                const targetCol = hitCol + c;
-                                if (targetRow >= 0 && targetRow < BARRIER_PIXEL_HEIGHT_ORIG &&
-                                    targetCol >= 0 && targetCol < BARRIER_PIXEL_WIDTH_ORIG) {
-                                    barrier.pixelMap[targetRow][targetCol] = 0; // Mark as destroyed
-                                }
-                            }
-                        }
-                        bullets.splice(bulletIndex, 1); // Remove bullet
-                        bulletOnScreen = false; // Bullet removed, can shoot again
-
-                        // Check if barrier is completely destroyed (no more '1's in pixelMap)
-                        const isBarrierDestroyed = barrier.pixelMap.every(row => row.every(pixel => pixel === 0));
-                        if (isBarrierDestroyed) {
-                            barriers.splice(barrierIndex, 1); // Remove barrier from array
+                        // Check if the specific pixel at the hit location is solid (1)
+                        if (barrier.pixelMap[hitRow_32x32][hitCol_32x32] === 1) {
+                            // Damage the pixel
+                            barrier.pixelMap[hitRow_32x32][hitCol_32x32] = 0; 
+                            bulletsToRemove.push(bulletIndex); // Mark bullet for removal
+                            bulletOnScreen = false; // Bullet removed, can shoot again
+                            return; // Stop checking this bullet against other barriers
                         }
                     }
                 });
-            // Player bullets vs UFO
-            if (ufo.alive &&
-                bullet.x < ufo.x + ufo.width * scaleX &&
-                bullet.x + (bullet.width * scaleX) > ufo.x &&
-                bullet.y < ufo.y + ufo.height * scaleY &&
-                bullet.y + (bullet.height * scaleY) > ufo.y) {
-                
-                bullets.splice(bulletIndex, 1); // Remove bullet
-                bulletOnScreen = false; // Bullet removed, can shoot again
-                ufo.alive = false; // Destroy UFO
-                score += ufo.points; // Add UFO points
-                try {
-                    explodeSynth.triggerAttackRelease('8n'); // Play explosion sound for UFO
-                    // Use ufoPlayer if available, otherwise ufoSynth
-                    if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
-                    else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
-                } catch (e) {
-                    console.log('UFO explosion sound playback failed:', e);
+
+                // Player bullets vs UFO
+                if (ufo.alive &&
+                    bullet.x < ufo.x + ufo.width * scaleX &&
+                    bullet.x + (bullet.width * scaleX) > ufo.x &&
+                    bullet.y < ufo.y + ufo.height * scaleY &&
+                    bullet.y + (ufo.height * scaleY) > ufo.y) { // Corrected bullet.y + bullet.height
+                    
+                    bulletsToRemove.push(bulletIndex); // Mark bullet for removal
+                    bulletOnScreen = false; // Bullet removed, can shoot again
+                    ufo.alive = false; // Destroy UFO
+                    score += ufo.points; // Add UFO points
+                    try {
+                        playUfoExplosionSound(); // Play code-generated UFO explosion sound (updated call)
+                        // Stop UFO continuous sound
+                        if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
+                        else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
+                    } catch (e) {
+                        console.log('UFO explosion sound playback failed:', e);
+                    }
                 }
-            }
-        }); 
+            }); 
+
+            // Filter out bullets marked for removal
+            bulletsToRemove.sort((a, b) => b - a).forEach(index => {
+                bullets.splice(index, 1);
+            });
+
+
+            // Array to hold bombs marked for removal
+            const bombsToRemove = [];
 
             // Alien bombs vs Player
             bombs.forEach((bomb, bombIndex) => {
                 if (!player.isHit && // Only hit if not invincible
-                    bomb.x < player.x + (player.width * scaleX) &&
+                    bomb.x < player.x + (player.width) && // Use player.width (already scaled)
                     bomb.x + (bomb.width * scaleX) > player.x &&
-            bomb.y < player.y + (player.height * scaleY) &&
+                    bomb.y < player.y + (player.height) && // Use player.height (already scaled)
                     bomb.y + (bomb.height * scaleY) > player.y) {
                     
-                    bombs.splice(bombIndex, 1); // Remove bomb
+                    bombsToRemove.push(bombIndex); // Mark bomb for removal
                     player.lives--;
                     player.isHit = true;
                     player.hitTimer = player.hitDuration; // Start invincibility timer
@@ -1313,54 +1383,44 @@
                         playerDeathTimer = 90; 
                     } else {
                         // Player hit, but not game over yet. Reset player position, clear bombs.
-                        player.x = canvas.width / 2 - (player.width * scaleX) / 2;
-                        bombs.length = 0;
+                        player.x = canvas.width / 2 - (player.width) / 2; // Use player.width (already scaled)
+                        bombs.length = 0; // Clear all bombs on player hit
                     }
                     return; 
                 }
 
                 // Alien bombs vs Barriers
-                barriers.forEach((barrier, barrierIndex) => {
-                    if (bomb.x < barrier.x + barrier.width &&
-                        bomb.x + (bomb.width * scaleX) > barrier.x &&
-                        bomb.y < barrier.y + barrier.height &&
-                        bomb.y + (bomb.height * scaleY) > barrier.y) {
+                barriers.forEach((barrier) => {
+                    // Calculate hit pixel in barrier's local coordinates (32x32 grid)
+                    const pixelSizeX = barrier.width / BARRIER_PIXEL_WIDTH_ORIG;
+                    const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
+
+                    // Calculate bomb's center relative to the barrier's top-left corner
+                    let hitX_abs = (bomb.x + (bomb.width * scaleX) / 2); 
+                    let hitY_abs = (bomb.y + (bomb.height * scaleY) / 2); 
+
+                    // Convert to barrier's local 32x32 pixel map indices
+                    let hitCol_32x32 = Math.floor((hitX_abs - barrier.x) / pixelSizeX);
+                    let hitRow_32x32 = Math.floor((hitY_abs - barrier.y) / pixelSizeY);
+
+                    // Check if the bomb is within the barrier's 32x32 bounding box
+                    if (hitCol_32x32 >= 0 && hitCol_32x32 < BARRIER_PIXEL_WIDTH_ORIG &&
+                        hitRow_32x32 >= 0 && hitRow_32x32 < BARRIER_PIXEL_HEIGHT_ORIG) {
                         
-                        // Calculate hit pixel in barrier's local coordinates
-                        const pixelSizeX = barrier.width / BARRIER_PIXEL_WIDTH_ORIG;
-                        const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
-
-                        let hitX = (bomb.x + (bomb.width * scaleX) / 2) - barrier.x;
-                        let hitY = (bomb.y + (bomb.height * scaleY) / 2) - barrier.y;
-
-                        // Convert to pixel map indices
-                        let hitCol = Math.floor(hitX / pixelSizeX);
-                        let hitRow = Math.floor(hitY / pixelSizeY);
-
-                        // Ensure indices are within bounds
-                        hitCol = Math.max(0, Math.min(hitCol, BARRIER_PIXEL_WIDTH_ORIG - 1));
-                        hitRow = Math.max(0, Math.min(hitRow, BARRIER_PIXEL_HEIGHT_ORIG - 1));
-
-                        // "Destroy" a small area around the hit point
-                        for (let r = -barrierDestructionRadius; r <= barrierDestructionRadius; r++) {
-                            for (let c = -barrierDestructionRadius; c <= barrierDestructionRadius; c++) {
-                                const targetRow = hitRow + r;
-                                const targetCol = hitCol + c;
-                                if (targetRow >= 0 && targetRow < BARRIER_PIXEL_HEIGHT_ORIG &&
-                                    targetCol >= 0 && targetCol < BARRIER_PIXEL_WIDTH_ORIG) {
-                                    barrier.pixelMap[targetRow][targetCol] = 0; // Mark as destroyed
-                                }
-                            }
-                        }
-                        bombs.splice(bombIndex, 1); // Remove bomb
-
-                        // Check if barrier is completely destroyed (no more '1's in pixelMap)
-                        const isBarrierDestroyed = barrier.pixelMap.every(row => row.every(pixel => pixel === 0));
-                        if (isBarrierDestroyed) {
-                            barriers.splice(barrierIndex, 1); // Remove barrier from array
+                        // Check if the specific pixel at the hit location is solid (1)
+                        if (barrier.pixelMap[hitRow_32x32][hitCol_32x32] === 1) {
+                            // Damage the pixel
+                            barrier.pixelMap[hitRow_32x32][hitCol_32x32] = 0; 
+                            bombsToRemove.push(bombIndex); // Mark bomb for removal
+                            return; // Stop checking this bomb against other barriers
                         }
                     }
                 });
+            });
+
+            // Filter out bombs marked for removal
+            bombsToRemove.sort((a, b) => b - a).forEach(index => {
+                bombs.splice(index, 1);
             });
         }
 
@@ -1430,7 +1490,8 @@
             });
 
             // Increment tickCounter for wave effect
-            tickCounter++; 
+            // Moved to inside moveAliens for precise control over wave effect timing
+            // tickCounter++; 
 
             if (aliensAliveCount === 0) {
                 // Win condition - start next wave
@@ -1515,7 +1576,7 @@
             if (e.key === 'ArrowRight') player.dx = player.speed;
             if (e.key === ' ' && canShoot && !bulletOnScreen) { // Spacebar for shooting
                 bullets.push({
-                    x: player.x + (player.width * scaleX) / 2 - (bulletWidth * scaleX) / 2,
+                    x: player.x + (player.width) / 2 - (bulletWidth * scaleX) / 2, // Use player.width (already scaled)
                     y: player.y - (bulletHeight * scaleY),
                     width: bulletWidth,
                     height: bulletHeight
@@ -1564,7 +1625,7 @@
             e.preventDefault();
             if (!gameStarted || gameOver || !canShoot || bulletOnScreen || playerDeathTimer > 0 || gamePaused) return;
             bullets.push({
-                x: player.x + (player.width * scaleX) / 2 - (bulletWidth * scaleX) / 2,
+                x: player.x + (player.width) / 2 - (bulletWidth * scaleX) / 2, // Use player.width (already scaled)
                 y: player.y - (bulletHeight * scaleY),
                 width: bulletWidth,
                 height: bulletHeight
@@ -1615,3 +1676,4 @@
     </script>
 </body>
 </html>
+
