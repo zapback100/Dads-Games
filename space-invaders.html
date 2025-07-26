@@ -134,17 +134,17 @@
         // Player Bullets
         const bullets = [];
         const bulletSpeed = 7; // Remains at 7, within 4-8px/frame
-        const bulletWidth = 2; // Adjusted for classic size
-        const bulletHeight = 8; // Adjusted for classic size
+        const PLAYER_BULLET_WIDTH_ORIG = 1; // Original player bullet width is 1 pixel
+        const PLAYER_BULLET_HEIGHT_ORIG = 4; // Original player bullet height is 4 pixels
         let canShoot = true; // Controls player shooting cooldown
         let bulletOnScreen = false; // Controls one bullet at a time
         const shootCooldown = 120; // milliseconds - FASTER GUN
 
-        // Alien Bombs
+        // Alien Bombs (now animated alien bullets)
         const bombs = [];
         const bombSpeed = 2; // Adjusted for slower bombs
-        const bombWidth = 2; // Adjusted for classic size
-        const bombHeight = 8; // Adjusted for classic size
+        const ALIEN_BULLET_WIDTH_ORIG = 3; // Original alien bullet width is 3 pixels
+        const ALIEN_BULLET_HEIGHT_ORIG = 8; // Original alien bullet height is 8 pixels
         const bombDropChance = 0.001; // Decreased chance for fewer bombs
 
         // Aliens
@@ -257,7 +257,7 @@
         ];
 
 
-        // Alien Explosion Sprite (8x8 pixels) - NEW
+        // Alien Explosion Sprite (8x8 pixels)
         const ALIEN_EXPLOSION_PATTERN = [
             [0,1,0,0,0,0,1,0],
             [1,1,1,0,0,1,1,1],
@@ -269,6 +269,40 @@
             [0,0,0,0,0,0,0,0],
         ];
         const ALIEN_EXPLOSION_DURATION = 2; // Show for 2 frames, then disappear (e.g., frame 0 and frame 1 visible)
+
+        // Player Bullet Sprite (1x4 pixels)
+        const playerBulletSprite = [
+            [1],
+            [1],
+            [1],
+            [1],
+        ];
+
+        // Alien Bullet Frames (3x8 matrices, 2 frames for zigzag)
+        const alienBulletFrames = [
+            [ // Frame 0: Zigzag
+                [0,1,0],
+                [1,0,1],
+                [0,1,0],
+                [1,0,1],
+                [0,1,0],
+                [1,0,1],
+                [0,1,0],
+                [1,0,1]
+            ],
+            [ // Frame 1: Zigzag (offset)
+                [1,0,1],
+                [0,1,0],
+                [1,0,1],
+                [0,1,0],
+                [1,0,1],
+                [0,1,0],
+                [1,0,1],
+                [0,1,0]
+            ]
+        ];
+        const ALIEN_BULLET_ANIMATION_SPEED = 5; // Update alien bullet frame every 5 ticks
+
 
         // Barriers
         const barriers = [];
@@ -302,6 +336,39 @@
         const OFFSET_X_ORIG = Math.floor((BARRIER_PIXEL_WIDTH_ORIG - MASK_W) / 2); // (32-22)/2 = 5
         const OFFSET_Y_ORIG = 8; // 8 original pixels down from top of 32x32 slot (as per user's "UNIT" suggestion)
 
+        // Explosion patterns (8x8) - Moved here to be defined before UFO uses them
+        const explosionPattern1 = [
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [1,0,0,1,1,0,0,1],
+            [0,0,1,0,0,1,0,0],
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [1,0,0,1,1,0,0,1],
+            [0,0,1,0,0,1,0,0]
+        ];
+
+        const explosionPattern2 = [
+            [1,0,0,0,0,0,0,1],
+            [0,1,0,0,0,0,1,0],
+            [0,0,1,0,0,1,0,0],
+            [0,0,0,1,1,0,0,0],
+            [0,0,0,1,1,0,0,0],
+            [0,0,1,0,0,1,0,0],
+            [0,1,0,0,0,0,1,0],
+            [1,0,0,0,0,0,0,1]
+        ];
+
+        const blankPattern = [
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0]
+        ];
 
         // UFO
         const ufo = {
@@ -313,7 +380,9 @@
             speed: 1.5, // Remains at 1.5, within 1-2px/frame
             alive: false,
             direction: 1, // 1 for right, -1 for left
-            points: 250 // Updated to 250 points for shooting UFO
+            points: 250, // Updated to 250 points for shooting UFO
+            exploding: false, // NEW: Explosion state for UFO
+            explosionTick: 0 // NEW: Explosion animation tick for UFO
         };
         // UFO pixel map based on image_886d9e.png (16x7 pixels)
         const ufoPixelMap = [
@@ -325,6 +394,13 @@
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], // Bottom "legs"
         ];
+        // UFO Explosion Frames (reusing player explosion patterns for simplicity as no specific UFO pattern was given)
+        const ufoExplosionFrames = [
+            explosionPattern1, // Frame 1 (8x8)
+            explosionPattern2  // Frame 2 (8x8)
+        ];
+        const UFO_EXPLOSION_STATE_DURATION = 10; // Frames per explosion pattern state for UFO
+        const UFO_EXPLOSION_TOTAL_DURATION = UFO_EXPLOSION_STATE_DURATION * ufoExplosionFrames.length;
 
 
         let ufoSpawnTimer = 0;
@@ -727,6 +803,8 @@
             player.invincibilityTimer = 0; // Reset invincibility timer
             bulletOnScreen = false; // Reset bullet state
             ufo.alive = false; // Ensure UFO is not active
+            ufo.exploding = false; // Reset UFO explosion state
+            ufo.explosionTick = 0; // Reset UFO explosion tick
             ufoSpawnTimer = ufoSpawnInterval; // Reset UFO timer
             playerDeathTimer = 0; // Reset player death timer
             initAliens(); // Re-initialize aliens and their positions
@@ -852,39 +930,6 @@
         ];
         const playerColor = '#0f0'; // Green player ship
 
-        // Explosion patterns (8x8)
-        const explosionPattern1 = [
-            [0,1,0,0,0,0,1,0],
-            [0,0,1,0,0,1,0,0],
-            [1,0,0,1,1,0,0,1],
-            [0,0,1,0,0,1,0,0],
-            [0,1,0,0,0,0,1,0],
-            [0,0,1,0,0,1,0,0],
-            [1,0,0,1,1,0,0,1],
-            [0,0,1,0,0,1,0,0]
-        ];
-
-        const explosionPattern2 = [
-            [1,0,0,0,0,0,0,1],
-            [0,1,0,0,0,0,1,0],
-            [0,0,1,0,0,1,0,0],
-            [0,0,0,1,1,0,0,0],
-            [0,0,0,1,1,0,0,0],
-            [0,0,1,0,0,1,0,0],
-            [0,1,0,0,0,0,1,0],
-            [1,0,0,0,0,0,0,1]
-        ];
-
-        const blankPattern = [
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0]
-        ];
 
         // Generic function to draw a pixel pattern
         function drawPattern(ctx, pattern, x, y, pixelMagnification, color) {
@@ -897,7 +942,7 @@
             const pixelSizeY = pixelMagnification * scaleY;
 
             for (let row = 0; row < patternHeight; row++) {
-                for (let col = 0; col < patternWidth; col++) {
+                for (let col = 0; col < pattern[row].length; col++) {
                     if (pattern[row][col] === 1) {
                         ctx.fillRect(x + col * pixelSizeX, y + row * pixelSizeY, pixelSizeX, pixelSizeY);
                     }
@@ -977,17 +1022,17 @@
 
         // Draw player bullets
         function drawBullets() {
-            ctx.fillStyle = '#fff';
             bullets.forEach(bullet => {
-                ctx.fillRect(bullet.x, bullet.y, bullet.width * scaleX, bullet.height * scaleY);
+                // Player bullets are white
+                drawPattern(ctx, playerBulletSprite, bullet.x, bullet.y, GAME_PIXEL_MAGNIFICATION, '#fff');
             });
         }
 
-        // Draw alien bombs
+        // Draw alien bombs (now animated bullets)
         function drawBombs() {
-            ctx.fillStyle = '#f00'; // Red bombs
             bombs.forEach(bomb => {
-                ctx.fillRect(bomb.x, bomb.y, bomb.width * scaleX, bomb.height * scaleY);
+                // Alien bullets are white
+                drawPattern(ctx, alienBulletFrames[bomb.frameIndex], bomb.x, bomb.y, GAME_PIXEL_MAGNIFICATION, '#FFFFFF');
             });
         }
 
@@ -1112,19 +1157,44 @@
         // Draw UFO (red, pixelated)
         function drawUFO() {
             if (ufo.alive) {
-                ctx.fillStyle = '#f00'; // Red UFO - kept as red as per image
                 const ux = ufo.x;
                 const uy = ufo.y;
                 const uw = ufo.width * scaleX; // Apply scaleX here
                 const uh = ufo.height * scaleY; // Apply scaleY here
 
-                const pixelSizeX = uw / ufoPixelMap[0].length; 
-                const pixelSizeY = uh / ufoPixelMap.length;  
+                if (ufo.exploding) {
+                    ctx.fillStyle = '#fff'; // Explosion is white
+                    const currentExplosionStateIndex = Math.floor(ufo.explosionTick / UFO_EXPLOSION_STATE_DURATION);
+                    let patternToDraw;
 
-                for (let row = 0; row < ufoPixelMap.length; row++) {
-                    for (let col = 0; col < ufoPixelMap[row].length; col++) {
-                        if (ufoPixelMap[row][col] === 1) {
-                            ctx.fillRect(ux + col * pixelSizeX, uy + row * pixelSizeY, pixelSizeX, pixelSizeY);
+                    if (currentExplosionStateIndex < ufoExplosionFrames.length) {
+                        patternToDraw = ufoExplosionFrames[currentExplosionStateIndex];
+                    } else {
+                        patternToDraw = blankPattern; // Should not be reached if logic is correct, but as a fallback
+                    }
+
+                    // Calculate offset to center the 8x8 explosion within the UFO's scaled bounding box
+                    const explosionOriginalWidth = patternToDraw[0].length; // 8
+                    const explosionOriginalHeight = patternToDraw.length; // 8
+
+                    const renderedExplosionWidth = explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
+                    const renderedExplosionHeight = explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+
+                    const offsetX_explosion = (uw - renderedExplosionWidth) / 2;
+                    const offsetY_explosion = (uh - renderedExplosionHeight) / 2;
+
+                    drawPattern(ctx, patternToDraw, ux + offsetX_explosion, uy + offsetY_explosion, GAME_PIXEL_MAGNIFICATION, '#fff');
+
+                } else {
+                    ctx.fillStyle = '#f00'; // Red UFO - kept as red as per image
+                    const pixelSizeX = uw / ufoPixelMap[0].length; 
+                    const pixelSizeY = uh / ufoPixelMap.length;  
+
+                    for (let row = 0; row < ufoPixelMap.length; row++) {
+                        for (let col = 0; col < ufoPixelMap[row].length; col++) {
+                            if (ufoPixelMap[row][col] === 1) {
+                                ctx.fillRect(ux + col * pixelSizeX, uy + row * pixelSizeY, pixelSizeX, pixelSizeY);
+                            }
                         }
                     }
                 }
@@ -1220,9 +1290,13 @@
             });
         }
 
-        // Move alien bombs
+        // Move alien bombs (now animated alien bullets)
         function moveBombs() {
             bombs.forEach((bomb, index) => {
+                bomb.tick++;
+                if (bomb.tick % ALIEN_BULLET_ANIMATION_SPEED === 0) {
+                    bomb.frameIndex = (bomb.frameIndex + 1) % alienBulletFrames.length;
+                }
                 bomb.y += bombSpeed * scaleY;
                 if (bomb.y > canvas.height) {
                     bombs.splice(index, 1);
@@ -1249,10 +1323,12 @@
                 if (Math.random() < bombDropChance) {
                     const alienPos = getAlienAbsPos(alien); // Get calculated position
                     bombs.push({
-                        x: alienPos.x + (alien.width * scaleX) / 2 - (bombWidth * scaleX) / 2,
+                        x: alienPos.x + (alien.width * scaleX) / 2 - (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center alien bullet
                         y: alienPos.y + (alien.height * scaleY),
-                        width: bombWidth,
-                        height: bombHeight
+                        width: ALIEN_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
+                        height: ALIEN_BULLET_HEIGHT_ORIG, // Store original height for pattern drawing
+                        frameIndex: 0, // Start at first animation frame
+                        tick: 0 // Initialize tick counter for animation
                     });
                     try {
                         bombSynth.triggerAttackRelease('C3', '8n'); // Play a bomb sound
@@ -1351,6 +1427,15 @@
 
         // Move UFO
         function moveUFO() {
+            if (ufo.exploding) {
+                ufo.explosionTick++;
+                if (ufo.explosionTick >= UFO_EXPLOSION_TOTAL_DURATION) {
+                    ufo.exploding = false;
+                    ufo.alive = false; // Remove UFO after explosion animation
+                }
+                return; // Do not move UFO if it's exploding
+            }
+
             if (ufo.alive) {
                 ufo.x += ufo.speed * ufo.direction * scaleX; // Apply ufo.direction here
                 // If UFO goes off screen, make it inactive
@@ -1429,9 +1514,9 @@
                     if (alien.alive && !alien.isExploding) { 
                         const alienPos = getAlienAbsPos(alien); // Get calculated position
                         if (bullet.x < alienPos.x + (alien.width * scaleX) &&
-                            bullet.x + (bullet.width * scaleX) > alienPos.x &&
+                            bullet.x + (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) > alienPos.x && // Use original bullet width
                             bullet.y < alienPos.y + (alien.height * scaleY) &&
-                            bullet.y + (alien.height * scaleY) > alienPos.y) { // Corrected bullet.y + bullet.height
+                            bullet.y + (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY) > alienPos.y) { // Use original bullet height
                             
                             alien.health--;
                             bulletsToRemove.push(bulletIndex); // Mark bullet for removal
@@ -1460,8 +1545,8 @@
                     const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
 
                     // Calculate bullet's center relative to the barrier's top-left corner
-                    let hitX_abs = (bullet.x + (bullet.width * scaleX) / 2); 
-                    let hitY_abs = (bullet.y + (bullet.height * scaleY) / 2); 
+                    let hitX_abs = (bullet.x + (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2); 
+                    let hitY_abs = (bullet.y + (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY) / 2); 
 
                     // Convert to barrier's local 32x32 pixel map indices
                     let hitCol_32x32 = Math.floor((hitX_abs - barrier.x) / pixelSizeX);
@@ -1483,23 +1568,25 @@
                 });
 
                 // Player bullets vs UFO
-                if (ufo.alive &&
+                if (ufo.alive && !ufo.exploding && // Only hit if UFO is alive and not already exploding
                     bullet.x < ufo.x + ufo.width * scaleX &&
-                    bullet.x + (bullet.width * scaleX) > ufo.x &&
+                    bullet.x + (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) > ufo.x &&
                     bullet.y < ufo.y + ufo.height * scaleY &&
-                    bullet.y + (ufo.height * scaleY) > ufo.y) { // Corrected bullet.y + bullet.height
+                    bullet.y + (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY) > ufo.y) {
                     
                     bulletsToRemove.push(bulletIndex); // Mark bullet for removal
                     bulletOnScreen = false; // Bullet removed, can shoot again
-                    ufo.alive = false; // Destroy UFO
+                    
+                    ufo.exploding = true; // Set UFO to exploding state
+                    ufo.explosionTick = 0; // Reset explosion tick
                     score += ufo.points; // Add UFO points
                     try {
-                        playUfoExplosionSound(); // Play code-generated UFO explosion sound (updated call)
+                        playUfoExplosionSound(); // Play UFO explosion sound
                         // Stop UFO continuous sound
                         if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
                         else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
                     } catch (e) {
-                        console.log('UFO explosion sound playback failed:', e);
+                        console.log('UFO sound stop failed:', e);
                     }
                 }
             }); 
@@ -1517,9 +1604,9 @@
             bombs.forEach((bomb, bombIndex) => {
                 if (!player.isExploding && !player.isInvincible && // Only hit if not exploding or invincible
                     bomb.x < player.x + (player.width) && // Use player.width (already scaled)
-                    bomb.x + (bomb.width * scaleX) > player.x &&
+                    bomb.x + (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) > player.x &&
                     bomb.y < player.y + (player.height) && // Use player.height (already scaled)
-                    bomb.y + (bomb.height * scaleY) > player.y) {
+                    bomb.y + (ALIEN_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY) > player.y) {
                     
                     bombsToRemove.push(bombIndex); // Mark bomb for removal
                     handlePlayerHit(); // Call the new handler
@@ -1533,8 +1620,8 @@
                     const pixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
 
                     // Calculate bomb's center relative to the barrier's top-left corner
-                    let hitX_abs = (bomb.x + (bomb.width * scaleX) / 2); 
-                    let hitY_abs = (bomb.y + (bomb.height * scaleY) / 2); 
+                    let hitX_abs = (bomb.x + (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2); 
+                    let hitY_abs = (bomb.y + (ALIEN_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY) / 2); 
 
                     // Convert to barrier's local 32x32 pixel map indices
                     let hitCol_32x32 = Math.floor((hitX_abs - barrier.x) / pixelSizeX);
@@ -1643,6 +1730,8 @@
                 bombs.length = 0;
                 bulletOnScreen = false; // Reset bullet state
                 ufo.alive = false; // Ensure UFO is gone
+                ufo.exploding = false; // Reset UFO explosion state
+                ufo.explosionTick = 0; // Reset UFO explosion tick
                 ufoSpawnTimer = ufoSpawnInterval; // Reset UFO timer for new wave
             }
 
@@ -1713,10 +1802,10 @@
             if (e.key === 'ArrowRight') player.dx = player.speed;
             if (e.key === ' ' && canShoot && !bulletOnScreen) { // Spacebar for shooting
                 bullets.push({
-                    x: player.x + (player.width) / 2 - (bulletWidth * scaleX) / 2, // Use player.width (already scaled)
-                    y: player.y - (bulletHeight * scaleY),
-                    width: bulletWidth,
-                    height: bulletHeight
+                    x: player.x + (player.width) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center player bullet
+                    y: player.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY), // Position above player
+                    width: PLAYER_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
+                    height: PLAYER_BULLET_HEIGHT_ORIG // Store original height for pattern drawing
                 });
                 try {
                     // Play shoot sound using Tone.Player if available, else synthesized
@@ -1762,10 +1851,10 @@
             e.preventDefault();
             if (!gameStarted || gameOver || !canShoot || bulletOnScreen || player.isExploding || playerDeathTimer > 0 || gamePaused) return;
             bullets.push({
-                x: player.x + (player.width) / 2 - (bulletWidth * scaleX) / 2, // Use player.width (already scaled)
-                y: player.y - (bulletHeight * scaleY),
-                width: bulletWidth,
-                height: bulletHeight
+                x: player.x + (player.width) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center player bullet
+                y: player.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY), // Position above player
+                width: PLAYER_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
+                height: PLAYER_BULLET_HEIGHT_ORIG // Store original height for pattern drawing
             });
             try {
                 // Play shoot sound using Tone.Player if available, else synthesized
@@ -1813,4 +1902,3 @@
     </script>
 </body>
 </html>
-
