@@ -231,7 +231,7 @@
         ];
 
 
-        // Alien Explosion Sprite (from image_8709bd.png) - 12x6 original pixels
+        // Alien Explosion Sprite (from image_88699f.png) - 12x6 original pixels
         const alienExplosionMap = [
             [0,0,1,1,0,0,0,0,1,1,0,0],
             [0,1,0,0,1,0,0,1,0,0,1,0],
@@ -256,11 +256,23 @@
             y: 30, // Position at the top
             width: 32, // Adjusted for classic size (original is 16 pixels wide)
             height: 14, // Adjusted for classic size (original is 7 pixels high)
-            speed: 2.5, // SLOWER UFO
+            speed: 1.5, // SLOWER UFO
             alive: false,
             direction: 1, // 1 for right, -1 for left
             points: 250 // Updated to 250 points for shooting UFO
         };
+        // UFO pixel map based on image_886d9e.png (16x7 pixels)
+        const ufoPixelMap = [
+            [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
+            [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
+            [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], // Bottom "legs"
+        ];
+
+
         let ufoSpawnTimer = 0;
         const ufoSpawnInterval = 1000; // Minimum frames between UFO spawns (approx 16 seconds)
 
@@ -282,12 +294,16 @@
 
         // --- Sound Configurations ---
         const ufoSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav';
-        const shootSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/shoot.wav';
+        // Updated shoot sound URL to use jsDelivr for CORS compatibility
+        const shootSoundUrl = 'https://cdn.jsdelivr.net/gh/zapback100/Dads-Games/shoot.wav'; 
+        const invaderKilledSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/invaderkilled.wav'; 
 
         let ufoPlayer = null; 
         let ufoSynth = null; 
-        let shootPlayer = null;
-        let synthesizedShootSynth = null; // For fallback synthesized shoot sound
+        let shootPlayer = null; 
+        let synthesizedShootSynth = null; 
+        let invaderKilledPlayer = null; 
+        let synthesizedInvaderKilledSynth = null; 
 
         function setupAudio() {
             // Initialize Tone.js context
@@ -299,12 +315,12 @@
                 shootPlayer = new Tone.Player({
                     url: shootSoundUrl,
                     autostart: false,
-                    volume: -10 // Adjust volume as needed
+                    volume: -10 
                 }).toDestination();
 
                 shootPlayer.onerror = (e) => {
                     console.error("Error loading shoot sound:", e);
-                    shootPlayer = null; // Clear the player
+                    shootPlayer = null; 
                     synthesizedShootSynth = new Tone.Synth({
                         oscillator: { type: "square" },
                         envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.1 }
@@ -318,7 +334,32 @@
                 }).toDestination();
             }
 
-            // Alien explosion sound
+            // Invader killed sound
+            if (invaderKilledSoundUrl) {
+                invaderKilledPlayer = new Tone.Player({
+                    url: invaderKilledSoundUrl,
+                    autostart: false,
+                    volume: -10 
+                }).toDestination();
+
+                invaderKilledPlayer.onerror = (e) => {
+                    console.error("Error loading invader killed sound:", e);
+                    invaderKilledPlayer = null;
+                    synthesizedInvaderKilledSynth = new Tone.NoiseSynth({
+                        noise: { type: "white" },
+                        envelope: { attack: 0.001, decay: 0.2, sustain: 0.01, release: 0.2 }
+                    }).toDestination();
+                    console.warn("Falling back to synthesized invader killed sound.");
+                };
+            } else {
+                synthesizedInvaderKilledSynth = new Tone.NoiseSynth({
+                    noise: { type: "white" },
+                    envelope: { attack: 0.001, decay: 0.2, sustain: 0.01, release: 0.2 }
+                }).toDestination();
+            }
+
+
+            // Alien explosion sound (used for player death and UFO)
             explodeSynth = new Tone.NoiseSynth({
                 noise: { type: "white" },
                 envelope: {
@@ -756,17 +797,6 @@
                 const uw = ufo.width;
                 const uh = ufo.height;
 
-                // UFO pixel map based on image_86b343.png (16x7 pixels)
-                const ufoPixelMap = [
-                    [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0],
-                    [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-                    [0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],
-                    [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-                    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-                    [0,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], // Bottom "legs"
-                ];
-
                 const pixelSizeX = uw / ufoPixelMap[0].length; 
                 const pixelSizeY = uh / ufoPixelMap.length;  
 
@@ -1035,9 +1065,11 @@
                             aliensAliveCount--; // Decrement count when alien is effectively destroyed
                             score += 10; // All aliens give 10 points in this version
                             try {
-                                explodeSynth.triggerAttackRelease('8n'); // Play explosion sound
+                                // Play invader killed sound using Tone.Player if available, else synthesized
+                                if (invaderKilledPlayer) { invaderKilledPlayer.start(); }
+                                else if (synthesizedInvaderKilledSynth) { synthesizedInvaderKilledSynth.triggerAttackRelease('8n'); }
                             } catch (e) {
-                                console.log('Explosion sound playback failed:', e);
+                                console.log('Invader killed sound playback failed:', e);
                             }
                         }
                     }
@@ -1237,7 +1269,9 @@
             aliens.forEach(alien => {
                 if (alien.isExploding) {
                     alien.explosionTimer--;
-                    // Alien is removed from drawing once explosion timer hits 0
+                    if (alien.explosionTimer <= 0) {
+                        alien.alive = false; // Make alien disappear after explosion animation
+                    }
                 }
             });
 
@@ -1428,3 +1462,4 @@
     </script>
 </body>
 </html>
+
