@@ -98,7 +98,10 @@
             box-shadow: 0 5px #cc0000, /* Bottom shadow */
                         inset 0 0 10px rgba(255,255,255,0.3); /* Inner highlight for gloss */
             cursor: grab;
-            transition: transform 0.05s ease-out; /* Smooth snap back */
+            /* Removed transition for immediate response */
+            top: 50%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%); /* Initial centering transform */
         }
         .joystick-knob:active {
             cursor: grabbing;
@@ -1487,8 +1490,8 @@
                 const scorePatternOriginalWidth = scorePattern[0].length;
                 const scorePatternOriginalHeight = scorePattern.length;
 
-                const renderedScoreWidth = scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
-                const renderedScoreHeight = scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+                const renderedScoreWidth = Math.floor(scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
+                const renderedScoreHeight = Math.floor(scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
 
                 // Ensure scoreX and scoreY are explicitly floored for drawing
                 const scoreX = Math.floor(ufo.x + (ufo.width * scaleX - renderedScoreWidth) / 2);
@@ -2397,7 +2400,8 @@
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
             
             // Set the knob's position immediately to center under the touch
-            joystickKnob.style.transform = `translateX(${newKnobX}px)`; // No Y for now
+            // Only translateX is applied here, translate(-50%, -50%) is already in CSS
+            joystickKnob.style.transform = `translate(-50%, -50%) translateX(${newKnobX}px)`;
             
             // Store the current touchX and the knob's new X position for relative movement in touchmove
             initialClientX = touchX;
@@ -2418,11 +2422,11 @@
             // Apply deadzone
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px)`;
+                joystickKnob.style.transform = `translate(-50%, -50%) translateX(0px)`;
             } else {
                 // Map knob position to player speed
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px)`; // No Y for now
+                joystickKnob.style.transform = `translate(-50%, -50%) translateX(${newKnobX}px)`;
             }
         });
 
@@ -2430,7 +2434,7 @@
             e.preventDefault(); 
             isDraggingJoystick = false;
             currentPlayer.dx = 0; 
-            joystickKnob.style.transform = `translateX(0px)`; // Snap knob back to center
+            joystickKnob.style.transform = `translate(-50%, -50%) translateX(0px)`; // Snap knob back to center
         });
 
         // Also add mouse events for desktop testing of joystick
@@ -2449,7 +2453,7 @@
             let newKnobX = mouseX - baseCenterX;
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
             
-            joystickKnob.style.transform = `translateX(${newKnobX}px)`;
+            joystickKnob.style.transform = `translate(-50%, -50%) translateX(${newKnobX}px)`;
             
             initialClientX = mouseX;
             initialKnobX = newKnobX;
@@ -2467,10 +2471,10 @@
 
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px)`;
+                joystickKnob.style.transform = `translate(-50%, -50%) translateX(0px)`;
             } else {
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
+                joystickKnob.style.transform = `translate(-50%, -50%) translateX(${newKnobX}px)`;
             }
         });
 
@@ -2479,7 +2483,7 @@
             e.preventDefault();
             isDraggingJoystick = false;
             currentPlayer.dx = 0;
-            joystickKnob.style.transform = `translateX(0px)`;
+            joystickKnob.style.transform = `translate(-50%, -50%) translateX(0px)`;
         });
 
 
