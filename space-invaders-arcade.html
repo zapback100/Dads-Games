@@ -1471,7 +1471,7 @@
             // Lives at bottom left (numerical display positioned above green line)
             ctx.textAlign = 'left';
             ctx.fillStyle = '#fff'; // White for lives number
-            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 248px original (was 252)
+            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(235 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 235px original
 
             // Draw lives as player ship icons at bottom left
             const lifeIconWidth = currentPlayer.width; // Use player's actual width (already scaled)
@@ -1508,7 +1508,7 @@
             // CREDIT 00 at bottom right
             ctx.textAlign = 'right';
             ctx.fillStyle = '#fff'; // White for credit
-            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 248px original (was 252)
+            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(235 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 235px original
 
             // Pause message
             if (gamePaused) {
@@ -2376,15 +2376,20 @@
             startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
             e.preventDefault();
-            if (demoMode) { // If in demo mode, exit and start new game
+            // NEW LOGIC: If game is not started (and not in demo mode), start it.
+            if (!gameStarted && !demoMode) {
+                resetGame(); // This will set gameStarted to true and initialize the game
+                return; // Exit after starting the game
+            }
+            // Existing demo mode exit logic (should be before actual game shooting)
+            if (demoMode) {
                 demoMode = false;
-                if (!gameStarted) {
-                    gameStarted = true;
-                }
                 resetGame();
                 return;
             }
-            if (!gameStarted || gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return; 
+            // Existing game shooting conditions
+            if (gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return; 
+            
             bullets.push({
                 x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center player bullet
                 y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)), // Position above player
@@ -2406,15 +2411,17 @@
             startAudioContext();
             inactivityTimer = DEMO_TIMEOUT_FRAMES;
             e.preventDefault();
+            // NEW LOGIC: If game is not started (and not in demo mode), start it.
+            if (!gameStarted && !demoMode) {
+                resetGame(); // This will set gameStarted to true and initialize the game
+                return; // Exit after starting the game
+            }
             if (demoMode) {
                 demoMode = false;
-                if (!gameStarted) {
-                    gameStarted = true;
-                }
                 resetGame();
                 return;
             }
-            if (!gameStarted || gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return;
+            if (gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return;
             bullets.push({
                 x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2),
                 y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)),
