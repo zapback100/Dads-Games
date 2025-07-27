@@ -772,8 +772,9 @@
             // UFO is at original Y 35, so aliens start around 60-70 original pixels from top.
             const ALIEN_START_Y_ORIG = 60; 
 
-            formationBaseX = (BASE_GAME_WIDTH - formationInternalWidth_ORIG) / 2 * GAME_PIXEL_MAGNIFICATION;
-            formationBaseY = ALIEN_START_Y_ORIG * GAME_PIXEL_MAGNIFICATION; // Position relative to scaled canvas
+            // Ensure initial positions are floored to prevent sub-pixel rendering issues
+            formationBaseX = Math.floor((BASE_GAME_WIDTH - formationInternalWidth_ORIG) / 2 * GAME_PIXEL_MAGNIFICATION * scaleX);
+            formationBaseY = Math.floor(ALIEN_START_Y_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY); // Position relative to scaled canvas
 
             for (let row = 0; row < alienRows; row++) {
                 for (let col = 0; col < alienCols; col++) {
@@ -843,14 +844,14 @@
             const barrierWidth = BARRIER_PIXEL_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION; 
             const barrierHeight = BARRIER_PIXEL_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION; 
 
-            // Calculate barrier Y position in canvas pixels
-            const barrierY = SHIELD_Y_ORIG * GAME_PIXEL_MAGNIFICATION;
+            // Calculate barrier Y position in canvas pixels, ensuring it's floored
+            const barrierY = Math.floor(SHIELD_Y_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
 
             const numBarriers = 4;
             // Calculate total width of barriers including spacing for even distribution
-            const totalBarriersRenderedWidth = numBarriers * barrierWidth;
-            const totalHorizontalSpace = BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION; // Use base game width for spacing calculation
-            const spacingBetweenBarriers = (totalHorizontalSpace - totalBarriersRenderedWidth) / (numBarriers + 1); // Distribute evenly with padding on ends
+            // Ensure totalHorizontalSpace is scaled correctly
+            const totalHorizontalSpace = BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION * scaleX; 
+            const spacingBetweenBarriers = (totalHorizontalSpace - (numBarriers * barrierWidth * scaleX)) / (numBarriers + 1); // Distribute evenly with padding on ends
 
             for (let i = 0; i < numBarriers; i++) {
                 // Initialize a 32x32 pixel map for each barrier, all zeros initially
@@ -871,7 +872,8 @@
                 }
 
                 barriers.push({
-                    x: spacingBetweenBarriers + i * (barrierWidth + spacingBetweenBarriers),
+                    // Ensure initial X position is floored
+                    x: Math.floor(spacingBetweenBarriers + i * (barrierWidth * scaleX + spacingBetweenBarriers)),
                     y: barrierY,
                     width: barrierWidth,
                     height: barrierHeight,
@@ -895,11 +897,11 @@
             currentPlayer = player; // Reference to the active player object (always player 1)
 
             // Player Y adjusted to be above the green line (original 208px from top)
-            currentPlayer.y = 208 * GAME_PIXEL_MAGNIFICATION; 
-            currentPlayer.x = (BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION) - (currentPlayer.width / 2);
+            currentPlayer.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY); 
+            currentPlayer.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2);
             
             gameOver = false;
-            gameStarted = true;
+            gameStarted = true; // Set gameStarted to true for a new user-played game
             gamePaused = false; // Ensure game is not paused on reset
             bullets.length = 0;
             bombs.length = 0;
@@ -924,6 +926,10 @@
             ufo.scoreDisplayTimer = 0; // Reset UFO score timer
             ufoSpawnTimer = ufoSpawnInterval; // Reset UFO timer
             playerDeathTimer = 0; // Reset player death timer
+
+            // Reset inactivity timer when a new game starts
+            inactivityTimer = DEMO_TIMEOUT_FRAMES; 
+            demoMode = false; // Ensure demo mode is off when a new game starts
 
             initAliens(); // Re-initialize aliens and their positions
             initBarriers();
@@ -971,12 +977,12 @@
             scaleY = canvas.height / (BASE_GAME_HEIGHT * GAME_PIXEL_MAGNIFICATION);
 
             // Re-position player and re-initialize game elements based on new scale
-            player.y = 208 * GAME_PIXEL_MAGNIFICATION * scaleY; // Player Y at original 208px
-            player.x = (BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (player.width * scaleX) / 2;
+            player.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY); // Player Y at original 208px
+            player.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (player.width * scaleX) / 2);
             currentPlayer = player; // Update current player reference
 
             // Adjust UFO Y position based on new scaling (original 35px from top)
-            ufo.y = 35 * GAME_PIXEL_MAGNIFICATION * scaleY;
+            ufo.y = Math.floor(35 * GAME_PIXEL_MAGNIFICATION * scaleY);
 
             initAliens(); // Re-initialize aliens and their positions with new scale
             initBarriers();
@@ -1461,7 +1467,8 @@
             // Player does not move if exploding
             if (currentPlayer.isExploding) return;
 
-            currentPlayer.x += currentPlayer.dx * scaleX;
+            // Ensure player's x position is floored after movement
+            currentPlayer.x = Math.floor(currentPlayer.x + currentPlayer.dx * scaleX);
             if (currentPlayer.x < 0) currentPlayer.x = 0;
             if (currentPlayer.x + (currentPlayer.width * scaleX) > canvas.width) currentPlayer.x = canvas.width - (currentPlayer.width * scaleX);
         }
@@ -1469,7 +1476,8 @@
         // Move player bullets
         function moveBullets() {
             bullets.forEach((bullet, index) => {
-                bullet.y -= bulletSpeed * scaleY;
+                // Ensure bullet's y position is floored after movement
+                bullet.y = Math.floor(bullet.y - bulletSpeed * scaleY);
                 if (bullet.y < 0) {
                     bullets.splice(index, 1);
                     currentPlayer.bulletOnScreen = false; // Bullet left screen
@@ -1484,7 +1492,8 @@
                 if (bomb.tick % ALIEN_BULLET_ANIMATION_SPEED === 0) {
                     bomb.frameIndex = (bomb.frameIndex + 1) % alienBulletFrames.length;
                 }
-                bomb.y += bombSpeed * scaleY;
+                // Ensure bomb's y position is floored after movement
+                bomb.y = Math.floor(bomb.y + bombSpeed * scaleY);
                 if (bomb.y > canvas.height) {
                     bombs.splice(index, 1);
                 }
@@ -1510,9 +1519,9 @@
                 if (Math.random() < bombDropChance) {
                     // Recalculate alienPos here, as it was out of scope
                     const alienPos = getAlienAbsPos(alien); 
-                    bombs.push({
-                        x: alienPos.x + (alien.width * scaleX) / 2 - (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center alien bullet
-                        y: alienPos.y + (alien.height * scaleY),
+                    bombs.push({ // Fixed: Pushing to bombs array, not bullets
+                        x: Math.floor(alienPos.x + (alien.width * scaleX) / 2 - (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center alien bullet
+                        y: Math.floor(alienPos.y + (alien.height * scaleY)),
                         width: ALIEN_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
                         height: ALIEN_BULLET_HEIGHT_ORIG, // Store original height for pattern drawing
                         frameIndex: 0, // Initialize frameIndex for animation
@@ -1570,8 +1579,8 @@
                     }
                 }
                 
-                // Update the formation's base X position
-                formationBaseX += effectiveStep_ORIG * GAME_PIXEL_MAGNIFICATION * alienDirection * scaleX;
+                // Update the formation's base X position, ensuring it's floored
+                formationBaseX = Math.floor(formationBaseX + effectiveStep_ORIG * GAME_PIXEL_MAGNIFICATION * alienDirection * scaleX);
 
                 // Find the current leftmost and rightmost X positions of the *live* formation
                 let leftmostAlienX = Infinity;
@@ -1602,9 +1611,9 @@
                     shouldMoveDown = true; // Flag to move down
                 }
 
-                // If should move down, update formation's base Y position
+                // If should move down, update formation's base Y position, ensuring it's floored
                 if (shouldMoveDown) {
-                    formationBaseY += ALIEN_VERTICAL_DROP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY; // Move down by full row step
+                    formationBaseY = Math.floor(formationBaseY + ALIEN_VERTICAL_DROP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY); // Move down by full row step
                 }
 
                 // Toggle animation frame for the entire formation (after a full cycle)
@@ -1647,7 +1656,8 @@
             }
 
             if (ufo.alive) {
-                ufo.x += ufo.speed * ufo.direction * scaleX; // Apply ufo.direction here
+                // Ensure UFO's x position is floored after movement
+                ufo.x = Math.floor(ufo.x + ufo.speed * ufo.direction * scaleX); // Apply ufo.direction here
                 // If UFO goes off screen, make it inactive
                 if (ufo.direction === 1 && ufo.x > canvas.width) {
                     ufo.alive = false;
@@ -1719,8 +1729,8 @@
                 // Current player lost a life but has more, just start explosion and then respawn (invincible)
                 // Reset current player's position after explosion and apply invincibility
                  setTimeout(() => {
-                    currentPlayer.x = (BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2;
-                    currentPlayer.y = 208 * GAME_PIXEL_MAGNIFICATION * scaleY;
+                    currentPlayer.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2);
+                    currentPlayer.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY);
                     currentPlayer.isInvincible = true;
                     currentPlayer.invincibilityTimer = currentPlayer.invincibilityDuration;
                     currentPlayer.canShoot = true; // Player can shoot after respawn
@@ -1957,11 +1967,12 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawStars(); // Draw stars first for background
 
-            if (!gameStarted) {
+            // --- Game State Handling ---
+            if (!gameStarted && !demoMode) { // Currently on start screen, waiting for input or demo
                 inactivityTimer--;
-                if (inactivityTimer <= 0 && !demoMode) {
+                if (inactivityTimer <= 0) { // Time for demo
                     demoMode = true;
-                    // Reset game state for demo mode, but keep gameStarted false
+                    // Initialize demo game state
                     player.lives = 3; // Reset lives for demo, but not displayed
                     player.score = 0; // Reset score for demo, but not displayed
                     bullets.length = 0;
@@ -1984,87 +1995,85 @@
                     playerDeathTimer = 0;
                     initAliens();
                     initBarriers();
-                    currentPlayer.x = (BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2;
-                    currentPlayer.y = 208 * GAME_PIXEL_MAGNIFICATION * scaleY;
+                    currentPlayer.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2);
+                    currentPlayer.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY);
+                }
+                drawStartScreen(); // Always draw start screen if not gameStarted and not demoMode
+                animationFrameId = requestAnimationFrame(update);
+                return; // Exit update loop for this frame
+            } else if (demoMode) { // Game is in demo mode
+                // Demo mode logic
+                // Player movement
+                currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED;
+                if (currentPlayer.x < 0 || currentPlayer.x + (currentPlayer.width * scaleX) > canvas.width) {
+                    demoPlayerDirection *= -1;
+                    currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED; // Reverse direction immediately
                 }
 
-                if (demoMode) {
-                    // Demo mode logic
-                    // Player movement
-                    currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED;
-                    if (currentPlayer.x < 0 || currentPlayer.x + (currentPlayer.width * scaleX) > canvas.width) {
-                        demoPlayerDirection *= -1;
-                        currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED; // Reverse direction immediately
-                    }
+                // Player shooting
+                demoShootTimer--;
+                if (demoShootTimer <= 0 && !currentPlayer.bulletOnScreen) {
+                    let targetAlien = null;
+                    let closestAlienY = Infinity;
 
-                    // Player shooting
-                    demoShootTimer--;
-                    if (demoShootTimer <= 0 && !currentPlayer.bulletOnScreen) {
-                        let targetAlien = null;
-                        let closestAlienY = Infinity;
-
-                        // Find the lowest alien in the player's current column
-                        aliens.forEach(alien => {
-                            if (alien.alive && !alien.isExploding) {
-                                const alienPos = getAlienAbsPos(alien);
-                                // Check if alien is roughly above the player
-                                if (alienPos.x < currentPlayer.x + (currentPlayer.width * scaleX) &&
-                                    alienPos.x + (alien.width * scaleX) > currentPlayer.x) {
-                                    if (alienPos.y < closestAlienY) { // Find the highest (lowest Y) alien in the column
-                                        closestAlienY = alienPos.y;
-                                        targetAlien = alien;
-                                    }
+                    // Find the lowest alien in the player's current column
+                    aliens.forEach(alien => {
+                        if (alien.alive && !alien.isExploding) {
+                            const alienPos = getAlienAbsPos(alien);
+                            // Check if alien is roughly above the player
+                            if (alienPos.x < currentPlayer.x + (currentPlayer.width * scaleX) &&
+                                alienPos.x + (alien.width * scaleX) > currentPlayer.x) {
+                                if (alienPos.y < closestAlienY) { // Find the highest (lowest Y) alien in the column
+                                    closestAlienY = alienPos.y;
+                                    targetAlien = alien;
                                 }
                             }
-                        });
-
-                        if (targetAlien) {
-                            bullets.push({
-                                x: currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2,
-                                y: currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY),
-                                width: PLAYER_BULLET_WIDTH_ORIG,
-                                height: PLAYER_BULLET_HEIGHT_ORIG
-                            });
-                            currentPlayer.bulletOnScreen = true;
-                            demoShootTimer = DEMO_SHOOT_INTERVAL;
-                        } else {
-                            // If no alien directly above, fire periodically anyway
-                            bullets.push({
-                                x: currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2,
-                                y: currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY),
-                                width: PLAYER_BULLET_WIDTH_ORIG,
-                                height: PLAYER_BULLET_HEIGHT_ORIG
-                            });
-                            currentPlayer.bulletOnScreen = true;
-                            demoShootTimer = DEMO_SHOOT_INTERVAL;
                         }
-                    }
+                    });
 
-                    movePlayer();
-                    moveBullets();
-                    moveBombs();
-                    dropBombs();
-                    moveAliens();
-                    moveUFO();
-                    checkCollisions();
-                    drawPlayer();
-                    drawBullets();
-                    drawBombs();
-                    drawAliens();
-                    drawBarriers();
-                    drawUFO();
-                    // Do not draw score or UFO score in demo mode
-                    // drawUfoScore(); 
-                    // drawScore(); 
-                    animationFrameId = requestAnimationFrame(update);
-                    return;
-                } else {
-                    // Normal start screen display
-                    drawStartScreen();
-                    animationFrameId = requestAnimationFrame(update);
-                    return;
+                    if (targetAlien) {
+                        bullets.push({
+                            x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2),
+                            y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)),
+                            width: PLAYER_BULLET_WIDTH_ORIG,
+                            height: PLAYER_BULLET_HEIGHT_ORIG
+                        });
+                        currentPlayer.bulletOnScreen = true;
+                        demoShootTimer = DEMO_SHOOT_INTERVAL;
+                    } else {
+                        // If no alien directly above, fire periodically anyway
+                        bullets.push({
+                            x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2),
+                            y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)),
+                            width: PLAYER_BULLET_WIDTH_ORIG,
+                            height: PLAYER_BULLET_HEIGHT_ORIG
+                        });
+                        currentPlayer.bulletOnScreen = true;
+                        demoShootTimer = DEMO_SHOOT_INTERVAL;
+                    }
                 }
+
+                movePlayer();
+                moveBullets();
+                moveBombs();
+                dropBombs();
+                moveAliens();
+                moveUFO();
+                checkCollisions();
+                drawPlayer();
+                drawBullets();
+                drawBombs();
+                drawAliens();
+                drawBarriers();
+                drawUFO();
+                // Do not draw score or UFO score in demo mode
+                // drawUfoScore(); 
+                // drawScore(); 
+                animationFrameId = requestAnimationFrame(update);
+                return; // Exit update loop for this frame
             }
+
+            // If we reach here, gameStarted is true (user-played game)
 
             // Check for overall game over (single player out of lives)
             if (player.lives <= 0) {
@@ -2224,8 +2233,8 @@
             if (e.key === 'ArrowRight') currentPlayer.dx = currentPlayer.speed;
             if (e.key === ' ' && !currentPlayer.bulletOnScreen) { // Spacebar for shooting, only if no bullet on screen
                 bullets.push({
-                    x: currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center player bullet
-                    y: currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY), // Position above player
+                    x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center player bullet
+                    y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)), // Position above player
                     width: PLAYER_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
                     height: PLAYER_BULLET_HEIGHT_ORIG // Store original height for pattern drawing
                 });
@@ -2282,8 +2291,8 @@
             }
             if (!gameStarted || gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return; 
             bullets.push({
-                x: currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2, // Center player bullet
-                y: currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY), // Position above player
+                x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center player bullet
+                y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)), // Position above player
                 width: PLAYER_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
                 height: PLAYER_BULLET_HEIGHT_ORIG // Store original height for pattern drawing
             });
@@ -2341,4 +2350,3 @@
     </script>
 </body>
 </html>
-
