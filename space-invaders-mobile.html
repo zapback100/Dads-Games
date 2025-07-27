@@ -68,8 +68,8 @@
 
         .joystick-container {
             position: relative; /* Container for base and knob */
-            width: 100px; /* Diameter of the joystick base */
-            height: 100px; /* Diameter of the joystick base */
+            width: 120px; /* Increased diameter of the joystick base */
+            height: 120px; /* Increased diameter of the joystick base */
             border-radius: 50%;
             display: flex;
             justify-content: center;
@@ -167,8 +167,10 @@
         let isDraggingJoystick = false;
         let initialClientX = 0; // Initial X coordinate of the touch/mouse
         let initialKnobX = 0; // Initial transformX of the knob when drag starts
-        const joystickRadius = (joystickBase.offsetWidth - joystickKnob.offsetWidth) / 2; // Max horizontal travel for knob
+        const joystickRadius = (joystickContainer.offsetWidth - joystickKnob.offsetWidth) / 2; // Max horizontal travel for knob
         const deadzoneThreshold = 10; // Pixels for deadzone
+        const maxDip = 15; // Max vertical dip for the joystick curve in pixels
+        const k = maxDip / (joystickRadius * joystickRadius); // Constant for the parabolic curve
 
         // Ensure pixel art is crisp
         ctx.imageSmoothingEnabled = false;
@@ -2308,10 +2310,10 @@
                 if (demoMode) { // If in demo mode, exit and start new game
                     demoMode = false;
                 }
-                if (!gameStarted) {
+                if (!gameStarted || gameOver) { // If game not started or game over, start/reset
                     gameStarted = true;
+                    resetGame(); // Reset game immediately on Enter
                 }
-                resetGame(); // Reset game immediately on Enter
                 return;
             }
 
@@ -2395,14 +2397,17 @@
             // Constrain knob position within joystickRadius
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
 
+            // Calculate newKnobY for the curve
+            let newKnobY = k * (newKnobX * newKnobX);
+
             // Apply deadzone
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px)`;
+                joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
             } else {
                 // Map knob position to player speed
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
+                joystickKnob.style.transform = `translateX(${newKnobX}px) translateY(${newKnobY}px)`;
             }
         });
 
@@ -2410,7 +2415,7 @@
             e.preventDefault(); // Prevent scrolling
             isDraggingJoystick = false;
             currentPlayer.dx = 0; // Stop player movement
-            joystickKnob.style.transform = `translateX(0px)`; // Snap knob back to center
+            joystickKnob.style.transform = `translateX(0px) translateY(0px)`; // Snap knob back to center
         });
 
         // Also add mouse events for desktop testing of joystick
@@ -2436,12 +2441,15 @@
 
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
 
+            // Calculate newKnobY for the curve
+            let newKnobY = k * (newKnobX * newKnobX);
+
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px)`;
+                joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
             } else {
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
+                joystickKnob.style.transform = `translateX(${newKnobX}px) translateY(${newKnobY}px)`;
             }
         });
 
@@ -2450,7 +2458,7 @@
             e.preventDefault();
             isDraggingJoystick = false;
             currentPlayer.dx = 0;
-            joystickKnob.style.transform = `translateX(0px)`;
+            joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
         });
 
 
@@ -2458,21 +2466,17 @@
             startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
             e.preventDefault();
-            // NEW LOGIC: If game is not started (and not in demo mode), start it.
-            if (!gameStarted && !demoMode) {
-                console.log("Shoot button touchstart: Starting game from intro screen.");
+            
+            // If game is not started (intro screen) or game is over, start/reset the game
+            if (!gameStarted || gameOver || demoMode) {
+                console.log("Shoot button touchstart: Starting/Resetting game.");
+                demoMode = false; // Exit demo mode if active
                 resetGame(); // This will set gameStarted to true and initialize the game
-                return; // Exit after starting the game
+                return; // Exit after starting/resetting the game
             }
-            // Existing demo mode exit logic (should be before actual game shooting)
-            if (demoMode) {
-                console.log("Shoot button touchstart: Exiting demo mode and starting new game.");
-                demoMode = false;
-                resetGame();
-                return;
-            }
-            // Existing game shooting conditions
-            if (gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return; 
+            
+            // Existing game shooting conditions (only allow shooting if not exploding, no bullet on screen, etc.)
+            if (currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return; 
             
             bullets.push({
                 x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center player bullet
@@ -2487,27 +2491,22 @@
             } catch (e) {
                 console.log('Shoot sound playback failed:', e);
             }
-            // currentPlayer.canShoot = false; // Removed
             currentPlayer.bulletOnScreen = true; // Set bullet on screen flag
-            // setTimeout(() => { currentPlayer.canShoot = true; }, shootCooldown); // Removed
         });
         shootButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
             startAudioContext();
             inactivityTimer = DEMO_TIMEOUT_FRAMES;
             e.preventDefault();
-            // NEW LOGIC: If game is not started (and not in demo mode), start it.
-            if (!gameStarted && !demoMode) {
-                console.log("Shoot button mousedown: Starting game from intro screen.");
+
+            // If game is not started (intro screen) or game is over, start/reset the game
+            if (!gameStarted || gameOver || demoMode) {
+                console.log("Shoot button mousedown: Starting/Resetting game.");
+                demoMode = false; // Exit demo mode if active
                 resetGame(); // This will set gameStarted to true and initialize the game
-                return; // Exit after starting the game
+                return; // Exit after starting/resetting the game
             }
-            if (demoMode) {
-                console.log("Shoot button mousedown: Exiting demo mode and starting new game.");
-                demoMode = false;
-                resetGame();
-                return;
-            }
-            if (gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return;
+
+            if (currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return;
             bullets.push({
                 x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2),
                 y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)),
