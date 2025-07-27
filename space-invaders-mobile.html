@@ -167,10 +167,10 @@
         let isDraggingJoystick = false;
         let initialClientX = 0; // Initial X coordinate of the touch/mouse
         let initialKnobX = 0; // Initial transformX of the knob when drag starts
-        const joystickRadius = (joystickContainer.offsetWidth - joystickKnob.offsetWidth) / 2; // Max horizontal travel for knob
+        // Calculate joystickRadius dynamically based on the actual rendered size of the elements
+        let joystickRadius = 0; // Will be set in resizeCanvas
+
         const deadzoneThreshold = 10; // Pixels for deadzone
-        const maxDip = 15; // Max vertical dip for the joystick curve in pixels
-        const k = maxDip / (joystickRadius * joystickRadius); // Constant for the parabolic curve
 
         // Ensure pixel art is crisp
         ctx.imageSmoothingEnabled = false;
@@ -1089,6 +1089,10 @@
             initBarriers();
             initStars();
 
+            // Update joystick radius after elements have rendered and have their final sizes
+            // Use offsetWidth/Height as they reflect the rendered dimensions
+            joystickRadius = (joystickContainer.offsetWidth - joystickKnob.offsetWidth) / 2;
+
             // Conditional display for mobile controls based on screen width
             if (window.innerWidth < 768) { // Assuming 768px is the breakpoint for mobile/tablet
                 mobileControls.style.display = 'flex';
@@ -1483,13 +1487,14 @@
                 const scorePatternOriginalWidth = scorePattern[0].length;
                 const scorePatternOriginalHeight = scorePattern.length;
 
-                const renderedScoreWidth = Math.floor(scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
-                const renderedScoreHeight = Math.floor(scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
+                const renderedScoreWidth = scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
+                const renderedScoreHeight = scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
 
-                const scoreX = ufo.x + (ufo.width * scaleX - renderedScoreWidth) / 2;
-                const scoreY = ufo.y + (ufo.height * scaleY - renderedScoreHeight) / 2;
+                // Ensure scoreX and scoreY are explicitly floored for drawing
+                const scoreX = Math.floor(ufo.x + (ufo.width * scaleX - renderedScoreWidth) / 2);
+                const scoreY = Math.floor(ufo.y + (ufo.height * scaleY - renderedScoreHeight) / 2);
 
-                drawPattern(ctx, scorePattern, Math.floor(scoreX), Math.floor(scoreY), GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Yellow for score
+                drawPattern(ctx, scorePattern, scoreX, scoreY, GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Yellow for score
 
                 ufo.scoreDisplayTimer--;
             } else if (ufo.scoreDisplayTimer <= 0) {
@@ -2374,48 +2379,58 @@
 
         // Joystick Touch Controls
         joystickBase.addEventListener('touchstart', (e) => {
-            startAudioContext(); // Ensure audio context starts on first touch
-            inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
-            e.preventDefault(); // Prevent scrolling
+            startAudioContext(); 
+            inactivityTimer = DEMO_TIMEOUT_FRAMES; 
+            e.preventDefault(); 
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
 
             isDraggingJoystick = true;
-            initialClientX = e.touches[0].clientX;
-            // Get current knob position relative to its parent (joystickContainer)
-            const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
-            initialKnobX = transformMatch ? parseFloat(transformMatch[1]) : 0;
+            
+            const touchX = e.touches[0].clientX;
+            const baseRect = joystickBase.getBoundingClientRect();
+            const baseCenterX = baseRect.left + baseRect.width / 2;
+            
+            // Calculate the knob's new X position relative to the base's center
+            let newKnobX = touchX - baseCenterX;
+            
+            // Constrain knob position within joystickRadius
+            newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
+            
+            // Set the knob's position immediately to center under the touch
+            joystickKnob.style.transform = `translateX(${newKnobX}px)`; // No Y for now
+            
+            // Store the current touchX and the knob's new X position for relative movement in touchmove
+            initialClientX = touchX;
+            initialKnobX = newKnobX;
         });
 
         joystickBase.addEventListener('touchmove', (e) => {
-            e.preventDefault(); // Prevent scrolling
+            e.preventDefault(); 
             if (!isDraggingJoystick) return;
 
             const currentClientX = e.touches[0].clientX;
             let deltaX = currentClientX - initialClientX;
-            let newKnobX = initialKnobX + deltaX;
+            let newKnobX = initialKnobX + deltaX; // Move relative to the initial centered position
 
             // Constrain knob position within joystickRadius
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
 
-            // Calculate newKnobY for the curve
-            let newKnobY = k * (newKnobX * newKnobX);
-
             // Apply deadzone
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
+                joystickKnob.style.transform = `translateX(0px)`;
             } else {
                 // Map knob position to player speed
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px) translateY(${newKnobY}px)`;
+                joystickKnob.style.transform = `translateX(${newKnobX}px)`; // No Y for now
             }
         });
 
         joystickBase.addEventListener('touchend', (e) => {
-            e.preventDefault(); // Prevent scrolling
+            e.preventDefault(); 
             isDraggingJoystick = false;
-            currentPlayer.dx = 0; // Stop player movement
-            joystickKnob.style.transform = `translateX(0px) translateY(0px)`; // Snap knob back to center
+            currentPlayer.dx = 0; 
+            joystickKnob.style.transform = `translateX(0px)`; // Snap knob back to center
         });
 
         // Also add mouse events for desktop testing of joystick
@@ -2426,9 +2441,18 @@
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
 
             isDraggingJoystick = true;
-            initialClientX = e.clientX;
-            const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
-            initialKnobX = transformMatch ? parseFloat(transformMatch[1]) : 0;
+            
+            const mouseX = e.clientX;
+            const baseRect = joystickBase.getBoundingClientRect();
+            const baseCenterX = baseRect.left + baseRect.width / 2;
+            
+            let newKnobX = mouseX - baseCenterX;
+            newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
+            
+            joystickKnob.style.transform = `translateX(${newKnobX}px)`;
+            
+            initialClientX = mouseX;
+            initialKnobX = newKnobX;
         });
 
         document.addEventListener('mousemove', (e) => { // Use document for mousemove to allow dragging outside base
@@ -2441,15 +2465,12 @@
 
             newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
 
-            // Calculate newKnobY for the curve
-            let newKnobY = k * (newKnobX * newKnobX);
-
             if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
-                joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
+                joystickKnob.style.transform = `translateX(0px)`;
             } else {
                 currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
-                joystickKnob.style.transform = `translateX(${newKnobX}px) translateY(${newKnobY}px)`;
+                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
             }
         });
 
@@ -2458,7 +2479,7 @@
             e.preventDefault();
             isDraggingJoystick = false;
             currentPlayer.dx = 0;
-            joystickKnob.style.transform = `translateX(0px) translateY(0px)`;
+            joystickKnob.style.transform = `translateX(0px)`;
         });
 
 
