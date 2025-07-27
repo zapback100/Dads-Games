@@ -65,7 +65,6 @@
             transform: translateY(4px); /* Move down slightly */
             box-shadow: 0 4px #990000; /* Smaller shadow when pressed */
         }
-        /* Removed .directional-buttons as it's replaced by joystick */
 
         .joystick-container {
             position: relative; /* Container for base and knob */
@@ -75,9 +74,9 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Position the joystick to the left within the controls flexbox */
-            margin-right: auto; 
-            margin-left: 0;
+            /* Position the joystick to the right within the controls flexbox */
+            margin-left: auto; 
+            margin-right: 0;
         }
 
         .joystick-base {
@@ -136,11 +135,13 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <div class="controls" id="mobileControls">
+        <!-- Fire button on the left -->
+        <button class="control-button" id="shootButton">FIRE</button>
+        <!-- Joystick on the right -->
         <div class="joystick-container" id="joystickContainer">
             <div class="joystick-base" id="joystickBase"></div>
             <div class="joystick-knob" id="joystickKnob"></div>
         </div>
-        <button class="control-button" id="shootButton">FIRE</button>
     </div>
 
     <div id="messageBox" class="message-box">
@@ -152,7 +153,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const mobileControls = document.getElementById('mobileControls');
-        // Removed leftButton and rightButton as they are replaced by the joystick
         const shootButton = document.getElementById('shootButton');
         const messageBox = document.getElementById('messageBox');
         const messageText = document.getElementById('messageText');
@@ -165,8 +165,8 @@
 
         // Joystick state variables
         let isDraggingJoystick = false;
-        let initialTouchX = 0;
-        let knobCurrentX = 0; // Current transformX value of the knob
+        let initialClientX = 0; // Initial X coordinate of the touch/mouse
+        let initialKnobX = 0; // Initial transformX of the knob when drag starts
         const joystickRadius = (joystickBase.offsetWidth - joystickKnob.offsetWidth) / 2; // Max horizontal travel for knob
         const deadzoneThreshold = 10; // Pixels for deadzone
 
@@ -2378,30 +2378,31 @@
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
 
             isDraggingJoystick = true;
-            initialTouchX = e.touches[0].clientX;
-            // Store the current knob position relative to its center for accurate dragging
+            initialClientX = e.touches[0].clientX;
+            // Get current knob position relative to its parent (joystickContainer)
             const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
-            knobCurrentX = transformMatch ? parseFloat(transformMatch[1]) : 0;
+            initialKnobX = transformMatch ? parseFloat(transformMatch[1]) : 0;
         });
 
         joystickBase.addEventListener('touchmove', (e) => {
             e.preventDefault(); // Prevent scrolling
             if (!isDraggingJoystick) return;
 
-            const currentTouchX = e.touches[0].clientX;
-            let dragOffset = currentTouchX - initialTouchX;
+            const currentClientX = e.touches[0].clientX;
+            let deltaX = currentClientX - initialClientX;
+            let newKnobX = initialKnobX + deltaX;
 
-            // Constrain drag offset within joystickRadius
-            dragOffset = Math.max(-joystickRadius, Math.min(joystickRadius, dragOffset));
+            // Constrain knob position within joystickRadius
+            newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
 
             // Apply deadzone
-            if (Math.abs(dragOffset) < deadzoneThreshold) {
+            if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
                 joystickKnob.style.transform = `translateX(0px)`;
             } else {
-                // Map dragOffset to player speed
-                currentPlayer.dx = currentPlayer.speed * (dragOffset / joystickRadius);
-                joystickKnob.style.transform = `translateX(${dragOffset}px)`;
+                // Map knob position to player speed
+                currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
+                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
             }
         });
 
@@ -2420,25 +2421,27 @@
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
 
             isDraggingJoystick = true;
-            initialTouchX = e.clientX;
+            initialClientX = e.clientX;
             const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
-            knobCurrentX = transformMatch ? parseFloat(transformMatch[1]) : 0;
+            initialKnobX = transformMatch ? parseFloat(transformMatch[1]) : 0;
         });
 
         document.addEventListener('mousemove', (e) => { // Use document for mousemove to allow dragging outside base
             if (!isDraggingJoystick) return;
             e.preventDefault();
 
-            const currentTouchX = e.clientX;
-            let dragOffset = currentTouchX - initialTouchX;
-            dragOffset = Math.max(-joystickRadius, Math.min(joystickRadius, dragOffset));
+            const currentClientX = e.clientX;
+            let deltaX = currentClientX - initialClientX;
+            let newKnobX = initialKnobX + deltaX;
 
-            if (Math.abs(dragOffset) < deadzoneThreshold) {
+            newKnobX = Math.max(-joystickRadius, Math.min(joystickRadius, newKnobX));
+
+            if (Math.abs(newKnobX) < deadzoneThreshold) {
                 currentPlayer.dx = 0;
                 joystickKnob.style.transform = `translateX(0px)`;
             } else {
-                currentPlayer.dx = currentPlayer.speed * (dragOffset / joystickRadius);
-                joystickKnob.style.transform = `translateX(${dragOffset}px)`;
+                currentPlayer.dx = currentPlayer.speed * (newKnobX / joystickRadius);
+                joystickKnob.style.transform = `translateX(${newKnobX}px)`;
             }
         });
 
