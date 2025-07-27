@@ -747,7 +747,8 @@
             stars.forEach(star => {
                 ctx.globalAlpha = star.alpha;
                 ctx.beginPath();
-                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                // Ensure star coordinates are floored for drawing
+                ctx.arc(Math.floor(star.x), Math.floor(star.y), star.radius, 0, Math.PI * 2);
                 ctx.fill();
                 star.y += 0.1; // Slowly move stars down
                 if (star.y > canvas.height) {
@@ -1002,7 +1003,7 @@
         // Helper function to draw pixel art on start screen (uses drawPattern internally)
         function drawPixelArt(pixelMap, x, y, originalSpriteWidth, originalSpriteHeight, color) {
             // drawPattern already handles the pixel magnification and scaling
-            drawPattern(ctx, pixelMap, x, y, GAME_PIXEL_MAGNIFICATION, color);
+            drawPattern(ctx, pixelMap, Math.floor(x), Math.floor(y), GAME_PIXEL_MAGNIFICATION, color);
         }
 
         // Draw start screen
@@ -1013,36 +1014,36 @@
             ctx.fillStyle = '#fff';
             // Adjusted font size and Y position for better fit
             ctx.font = `${18 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`; 
-            ctx.fillText('SPACE', canvas.width / 2, 50 * scaleY); // Adjusted Y position
+            ctx.fillText('SPACE', Math.floor(canvas.width / 2), Math.floor(50 * scaleY)); // Adjusted Y position
 
             // "INVADERS"
             ctx.fillStyle = '#0f0';
             // Adjusted font size and Y position for better fit
             ctx.font = `${18 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`; 
-            ctx.fillText('INVADERS', canvas.width / 2, 115 * scaleY); // Adjusted Y position
+            ctx.fillText('INVADERS', Math.floor(canvas.width / 2), Math.floor(115 * scaleY)); // Adjusted Y position
 
             // Alien points section
-            const startYOffset = 180 * scaleY; // Adjusted Y position
-            const lineHeight = 15 * GAME_PIXEL_MAGNIFICATION * scaleY; 
+            const startYOffset = Math.floor(180 * scaleY); // Adjusted Y position
+            const lineHeight = Math.floor(15 * GAME_PIXEL_MAGNIFICATION * scaleY); 
             
             // 30 PTS Alien (Octopus) - Corrected order
-            drawPixelArt(octopusAlienMap_frame1, canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset, ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG, ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG, '#fff'); // White aliens
+            drawPixelArt(octopusAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), startYOffset, ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG, ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG, '#fff'); // White aliens
             ctx.fillStyle = '#fff';
             ctx.font = `${8 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`; 
             ctx.textAlign = 'left';
-            ctx.fillText('= 30 PTS', canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + (ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2));
+            ctx.fillText('= 30 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + (ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // 20 PTS Alien (Crab) - Corrected order
-            drawPixelArt(crabAlienMap_frame1, canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + lineHeight, ALIEN_SPRITE_WIDTH_CRAB_ORIG, ALIEN_SPRITE_HEIGHT_CRAB_ORIG, '#fff'); // White aliens
-            ctx.fillText('= 20 PTS', canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + lineHeight + (ALIEN_SPRITE_HEIGHT_CRAB_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2));
+            drawPixelArt(crabAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + lineHeight), ALIEN_SPRITE_WIDTH_CRAB_ORIG, ALIEN_SPRITE_HEIGHT_CRAB_ORIG, '#fff'); // White aliens
+            ctx.fillText('= 20 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + lineHeight + (ALIEN_SPRITE_HEIGHT_CRAB_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // 10 PTS Alien (Squid) - Corrected order
-            drawPixelArt(squidAlienMap_frame1, canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + 2 * lineHeight, ALIEN_SPRITE_WIDTH_SQUID_ORIG, ALIEN_SPRITE_HEIGHT_SQUID_ORIG, '#fff'); // White aliens
-            ctx.fillText('= 10 PTS', canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + 2 * lineHeight + (ALIEN_SPRITE_HEIGHT_SQUID_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2));
+            drawPixelArt(squidAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 2 * lineHeight), ALIEN_SPRITE_WIDTH_SQUID_ORIG, ALIEN_SPRITE_HEIGHT_SQUID_ORIG, '#fff'); // White aliens
+            ctx.fillText('= 10 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 2 * lineHeight + (ALIEN_SPRITE_HEIGHT_SQUID_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // UFO ??? PTS (using a placeholder value for start screen, actual value is random)
-            drawPixelArt(ufoStartScreenMap, canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + 3 * lineHeight, ufo.width / GAME_PIXEL_MAGNIFICATION, ufo.height / GAME_PIXEL_MAGNIFICATION, '#f00');
-            ctx.fillText(`= ??? PTS`, canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX, startYOffset + 3 * lineHeight + (ufo.height * scaleY / 2));
+            drawPixelArt(ufoStartScreenMap, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 3 * lineHeight), ufo.width / GAME_PIXEL_MAGNIFICATION, ufo.height / GAME_PIXEL_MAGNIFICATION, '#f00');
+            ctx.fillText(`= ??? PTS`, Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 3 * lineHeight + (ufo.height * scaleY / 2)));
 
 
             // "PRESS ENTER TO START"
@@ -1050,7 +1051,7 @@
             // Adjusted font size for better fit
             ctx.font = `${9 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`; 
             ctx.textAlign = 'center';
-            ctx.fillText('PRESS ENTER TO START', canvas.width / 2, canvas.height - 50 * scaleY);
+            ctx.fillText('PRESS ENTER TO START', Math.floor(canvas.width / 2), Math.floor(canvas.height - 50 * scaleY));
             ctx.textAlign = 'left'; // Reset to default
         }
 
@@ -1132,7 +1133,7 @@
                 }
                 
                 // Draw the explosion/blank pattern centered on the player's last known position
-                drawPattern(ctx, patternToDraw, px + offsetX, py + offsetY, GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Explosion is yellow
+                drawPattern(ctx, patternToDraw, Math.floor(px + offsetX), Math.floor(py + offsetY), GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Explosion is yellow
 
                 currentPlayer.explosionFrameCounter++;
                 if (currentPlayer.explosionFrameCounter >= EXPLOSION_TOTAL_DURATION) {
@@ -1143,7 +1144,7 @@
                 // Player is invincible and flashing (not exploding)
                 // The flashing logic: draw every other 10 frames
                 if (Math.floor(currentPlayer.invincibilityTimer / 10) % 2 === 0) {
-                    drawPattern(ctx, playerPattern, px, py, GAME_PIXEL_MAGNIFICATION, playerColor);
+                    drawPattern(ctx, playerPattern, Math.floor(px), Math.floor(py), GAME_PIXEL_MAGNIFICATION, playerColor);
                 }
                 currentPlayer.invincibilityTimer--;
                 if (currentPlayer.invincibilityTimer <= 0) {
@@ -1151,7 +1152,7 @@
                 }
             } else {
                 // Draw player normally (not exploding, not invincible)
-                drawPattern(ctx, playerPattern, px, py, GAME_PIXEL_MAGNIFICATION, playerColor);
+                drawPattern(ctx, playerPattern, Math.floor(px), Math.floor(py), GAME_PIXEL_MAGNIFICATION, playerColor);
             }
         }
 
@@ -1159,7 +1160,7 @@
         function drawBullets() {
             bullets.forEach(bullet => {
                 // Player bullets are white
-                drawPattern(ctx, playerBulletSprite, bullet.x, bullet.y, GAME_PIXEL_MAGNIFICATION, '#fff');
+                drawPattern(ctx, playerBulletSprite, Math.floor(bullet.x), Math.floor(bullet.y), GAME_PIXEL_MAGNIFICATION, '#fff');
             });
         }
 
@@ -1181,7 +1182,7 @@
 
                 const currentBulletPattern = alienBulletFrames[actualFrameIndex];
                 
-                drawPattern(ctx, currentBulletPattern, bomb.x, bomb.y, GAME_PIXEL_MAGNIFICATION, '#FFFFFF');
+                drawPattern(ctx, currentBulletPattern, Math.floor(bomb.x), Math.floor(bomb.y), GAME_PIXEL_MAGNIFICATION, '#FFFFFF');
             });
         }
 
@@ -1198,7 +1199,7 @@
             x += offsetX;
 
             const y = formationBaseY + alien.gridRow * (alienHeight_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
-            return { x, y };
+            return { x: Math.floor(x), y: Math.floor(y) }; // Ensure returned positions are floored
         }
 
         // Draw aliens (classic pixel art from image)
@@ -1208,12 +1209,12 @@
                     ctx.globalAlpha = 1.0; // Ensure full opacity
                     ctx.fillStyle = '#fff'; // WHITE for classic look
 
-                    const alienPos = getAlienAbsPos(alien); // Get calculated position
+                    const alienPos = getAlienAbsPos(alien); // Get calculated position (already floored)
                     const ax = alienPos.x;
                     const ay = alienPos.y;
                     // Use the alien's stored originalSpriteWidth and Height to calculate its scaled width/height
-                    const aw = alien.originalSpriteWidth * GAME_PIXEL_MAGNIFICATION * scaleX; 
-                    const ah = alien.originalSpriteHeight * GAME_PIXEL_MAGNIFICATION * scaleY; 
+                    const aw = Math.floor(alien.originalSpriteWidth * GAME_PIXEL_MAGNIFICATION * scaleX); 
+                    const ah = Math.floor(alien.originalSpriteHeight * GAME_PIXEL_MAGNIFICATION * scaleY); 
 
                     if (alien.isExploding) {
                         ctx.fillStyle = '#ffff00'; // Explosion is yellow
@@ -1231,15 +1232,15 @@
                         const explosionOriginalHeight = patternToDraw.length; // 11
 
                         // Calculate the rendered width/height of the explosion pattern (scaled by GAME_PIXEL_MAGNIFICATION and current scale)
-                        const renderedExplosionWidth = explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
-                        const renderedExplosionHeight = explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+                        const renderedExplosionWidth = Math.floor(explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
+                        const renderedExplosionHeight = Math.floor(explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
 
                         // Calculate the offset to center the explosion within the alien's *scaled* dimensions
                         const offsetX_explosion = (aw - renderedExplosionWidth) / 2;
                         const offsetY_explosion = (ah - renderedExplosionHeight) / 2;
 
                         // Draw using the generic drawPattern function
-                        drawPattern(ctx, patternToDraw, ax + offsetX_explosion, ay + offsetY_explosion, GAME_PIXEL_MAGNIFICATION, '#ffff00');
+                        drawPattern(ctx, patternToDraw, Math.floor(ax + offsetX_explosion), Math.floor(ay + offsetY_explosion), GAME_PIXEL_MAGNIFICATION, '#ffff00');
 
                     } else {
                         // Use the appropriate pixel map based on the current animation frame
@@ -1277,8 +1278,8 @@
                 if (hasActivePixels) {
                     const bx = barrier.x;
                     const by = barrier.y;
-                    const bw = barrier.width * scaleX; // Apply scaleX/Y to width/height for drawing
-                    const bh = barrier.height * scaleY; 
+                    const bw = Math.floor(barrier.width * scaleX); // Apply scaleX/Y to width/height for drawing
+                    const bh = Math.floor(barrier.height * scaleY); 
 
                     const pixelSizeX = bw / BARRIER_PIXEL_WIDTH_ORIG;
                     const pixelSizeY = bh / BARRIER_PIXEL_HEIGHT_ORIG;
@@ -1306,8 +1307,8 @@
             if (ufo.alive) {
                 const ux = ufo.x;
                 const uy = ufo.y;
-                const uw = ufo.width * scaleX; // Apply scaleX/Y to width/height for drawing
-                const uh = ufo.height * scaleY; 
+                const uw = Math.floor(ufo.width * scaleX); // Apply scaleX/Y to width/height for drawing
+                const uh = Math.floor(ufo.height * scaleY); 
 
                 if (ufo.exploding) {
                     ctx.fillStyle = '#ffff00'; // Explosion is yellow
@@ -1324,13 +1325,13 @@
                     const explosionOriginalWidth = patternToDraw[0].length; // 11
                     const explosionOriginalHeight = patternToDraw.length; // 11
 
-                    const renderedExplosionWidth = explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
-                    const renderedExplosionHeight = explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+                    const renderedExplosionWidth = Math.floor(explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
+                    const renderedExplosionHeight = Math.floor(explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
 
                     const offsetX_explosion = (uw - renderedExplosionWidth) / 2;
                     const offsetY_explosion = (uh - renderedExplosionHeight) / 2;
 
-                    drawPattern(ctx, patternToDraw, ux + offsetX_explosion, uy + offsetY_explosion, GAME_PIXEL_MAGNIFICATION, '#ffff00');
+                    drawPattern(ctx, patternToDraw, Math.floor(ux + offsetX_explosion), Math.floor(uy + offsetY_explosion), GAME_PIXEL_MAGNIFICATION, '#ffff00');
 
                 } else {
                     ctx.fillStyle = '#f00'; // Red UFO 
@@ -1377,13 +1378,13 @@
                 const scorePatternOriginalWidth = scorePattern[0].length;
                 const scorePatternOriginalHeight = scorePattern.length;
 
-                const renderedScoreWidth = scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
-                const renderedScoreHeight = scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+                const renderedScoreWidth = Math.floor(scorePatternOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
+                const renderedScoreHeight = Math.floor(scorePatternOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
 
                 const scoreX = ufo.x + (ufo.width * scaleX - renderedScoreWidth) / 2;
                 const scoreY = ufo.y + (ufo.height * scaleY - renderedScoreHeight) / 2;
 
-                drawPattern(ctx, scorePattern, scoreX, scoreY, GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Yellow for score
+                drawPattern(ctx, scorePattern, Math.floor(scoreX), Math.floor(scoreY), GAME_PIXEL_MAGNIFICATION, '#ffff00'); // Yellow for score
 
                 ufo.scoreDisplayTimer--;
             } else if (ufo.scoreDisplayTimer <= 0) {
@@ -1399,34 +1400,34 @@
             ctx.textAlign = 'left';
 
             // SCORE<1>
-            ctx.fillText(`SCORE<1>`, 8 * GAME_PIXEL_MAGNIFICATION * scaleX, 10 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y = 10px original
-            ctx.fillText(`${String(currentPlayer.score).padStart(4, '0')}`, 8 * GAME_PIXEL_MAGNIFICATION * scaleX, 20 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y = 20px original
+            ctx.fillText(`SCORE<1>`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(10 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 10px original
+            ctx.fillText(`${String(currentPlayer.score).padStart(4, '0')}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(20 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 20px original
 
             // HI-SCORE
             ctx.textAlign = 'center';
-            ctx.fillText(`HI-SCORE`, canvas.width / 2, 10 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y = 10px original
-            ctx.fillText(`${String(highScore).padStart(4, '0')}`, canvas.width / 2, 20 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y = 20px original
+            ctx.fillText(`HI-SCORE`, Math.floor(canvas.width / 2), Math.floor(10 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 10px original
+            ctx.fillText(`${String(highScore).padStart(4, '0')}`, Math.floor(canvas.width / 2), Math.floor(20 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 20px original
 
             // Bottom line for lives and credit (original Y is 240px from top)
             ctx.fillStyle = '#0f0'; // Green line
-            ctx.fillRect(0, 240 * GAME_PIXEL_MAGNIFICATION * scaleY, canvas.width, 1 * GAME_PIXEL_MAGNIFICATION * scaleY); // Adjusted Y position of the line
+            ctx.fillRect(0, Math.floor(240 * GAME_PIXEL_MAGNIFICATION * scaleY), canvas.width, Math.floor(1 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y position of the line
 
             // Lives at bottom left (numerical display positioned above green line)
             ctx.textAlign = 'left';
             ctx.fillStyle = '#fff'; // White for lives number
-            ctx.fillText(`${currentPlayer.lives}`, 8 * GAME_PIXEL_MAGNIFICATION * scaleX, 248 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y = 248px original
+            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 248px original
 
             // Draw lives as player ship icons at bottom left
             const lifeIconWidth = currentPlayer.width; // Use player's actual width (already scaled)
             const lifeIconHeight = currentPlayer.height; // Use player's actual height (already scaled)
-            const lifeStartX = 18 * GAME_PIXEL_MAGNIFICATION * scaleX; // Start position for icons (adjusted)
-            const lifeY = 243 * GAME_PIXEL_MAGNIFICATION * scaleY; // Y position for life icons (original 243px from top)
+            const lifeStartX = Math.floor(18 * GAME_PIXEL_MAGNIFICATION * scaleX); // Start position for icons (adjusted)
+            const lifeY = Math.floor(243 * GAME_PIXEL_MAGNIFICATION * scaleY); // Y position for life icons (original 243px from top)
 
             // Player Pixel Map (re-used for life icons)
             const lifePlayerPixelMap = playerPattern; // Use the same pattern as the player
 
             for (let i = 0; i < currentPlayer.lives; i++) {
-                const lx = lifeStartX + (lifeIconWidth * scaleX + 5 * GAME_PIXEL_MAGNIFICATION * scaleX) * i; // Spacing between icons
+                const lx = Math.floor(lifeStartX + (lifeIconWidth * scaleX + 5 * GAME_PIXEL_MAGNIFICATION * scaleX) * i); // Spacing between icons
                 const ly = lifeY;
 
                 ctx.fillStyle = playerColor; // Green for life icons
@@ -1441,7 +1442,7 @@
                                 Math.floor(lx + col * iconPixelSizeX), 
                                 Math.floor(ly + row * iconPixelSizeY), 
                                 Math.floor(iconPixelSizeX), 
-                                Math.floor(iconPixelSizeY) // Fixed: Changed pixelDrawSizeY to iconPixelSizeY
+                                Math.floor(iconPixelSizeY) 
                             );
                         }
                     }
@@ -1451,14 +1452,14 @@
             // CREDIT 00 at bottom right
             ctx.textAlign = 'right';
             ctx.fillStyle = '#fff'; // White for credit
-            ctx.fillText(`CREDIT 00`, canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX, 248 * GAME_PIXEL_MAGNIFICATION * scaleY); // Aligned with lives number
+            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Aligned with lives number
 
             // Pause message
             if (gamePaused) {
                 ctx.fillStyle = '#00ff00';
                 ctx.font = `${15 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`;
                 ctx.textAlign = 'center';
-                ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('PAUSED', Math.floor(canvas.width / 2), Math.floor(canvas.height / 2));
             }
         }
 
@@ -1519,7 +1520,7 @@
                 if (Math.random() < bombDropChance) {
                     // Recalculate alienPos here, as it was out of scope
                     const alienPos = getAlienAbsPos(alien); 
-                    bombs.push({ // Fixed: Pushing to bombs array, not bullets
+                    bombs.push({ 
                         x: Math.floor(alienPos.x + (alien.width * scaleX) / 2 - (ALIEN_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2), // Center alien bullet
                         y: Math.floor(alienPos.y + (alien.height * scaleY)),
                         width: ALIEN_BULLET_WIDTH_ORIG, // Store original width for pattern drawing
@@ -1762,7 +1763,7 @@
             bullets.forEach((bullet, bulletIndex) => {
                 aliens.forEach((alien, alienIndex) => {
                     if (alien.alive && !alien.isExploding) { 
-                        const alienPos = getAlienAbsPos(alien); // Get calculated position
+                        const alienPos = getAlienAbsPos(alien); // Get calculated position (already floored)
                         if (bullet.x < alienPos.x + (alien.width * scaleX) &&
                             bullet.x + (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) > alienPos.x && // Use original bullet width
                             bullet.y < alienPos.y + (alien.height * scaleY) &&
@@ -2085,11 +2086,11 @@
                 // Adjusted font sizes and Y positions for better fit
                 ctx.font = `${15 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`;
                 ctx.textAlign = 'center';
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 20 * GAME_PIXEL_MAGNIFICATION * scaleY); // Moved up
-                ctx.fillText(`SCORE: ${player.score}`, canvas.width / 2, canvas.height / 2 + 5 * GAME_PIXEL_MAGNIFICATION * scaleY); // Adjusted Y
+                ctx.fillText('GAME OVER', Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 - 20 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Moved up
+                ctx.fillText(`SCORE: ${player.score}`, Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 + 5 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y
                 
                 ctx.font = `${10 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`; // Smaller font for "Press Enter"
-                ctx.fillText('Press Enter to Reset', canvas.width / 2, canvas.height / 2 + 30 * GAME_PIXEL_MAGNIFICATION * scaleY); // Adjusted Y
+                ctx.fillText('Press Enter to Reset', Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 + 30 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y
                 ctx.textAlign = 'left';
                 cancelAnimationFrame(animationFrameId); // Stop the game loop
                 return;
@@ -2329,10 +2330,10 @@
                     ctx.fillStyle = '#00ff00';
                     ctx.font = `${15 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`;
                     ctx.textAlign = 'center';
-                    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 20 * GAME_PIXEL_MAGNIFICATION * scaleY);
-                    ctx.fillText(`SCORE: ${player.score}`, canvas.width / 2, canvas.height / 2 + 5 * GAME_PIXEL_MAGNIFICATION * scaleY);
+                    ctx.fillText('GAME OVER', Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 - 20 * GAME_PIXEL_MAGNIFICATION * scaleY));
+                    ctx.fillText(`SCORE: ${player.score}`, Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 + 5 * GAME_PIXEL_MAGNIFICATION * scaleY));
                     ctx.font = `${10 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`;
-                    ctx.fillText('Press Enter to Reset', canvas.width / 2, canvas.height / 2 + 30 * GAME_PIXEL_MAGNIFICATION * scaleY);
+                    ctx.fillText('Press Enter to Reset', Math.floor(canvas.width / 2), Math.floor(canvas.height / 2 + 30 * GAME_PIXEL_MAGNIFICATION * scaleY));
                     ctx.textAlign = 'left';
                 }
                 // If in demo mode, redraw the current demo state (aliens, player, etc.)
@@ -2350,3 +2351,4 @@
     </script>
 </body>
 </html>
+
