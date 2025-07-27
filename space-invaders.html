@@ -338,26 +338,46 @@
             [1],
         ];
 
-        // Alien Bullet Frames (3x8 matrices, 2 frames for zigzag)
+        // Alien Bullet Frames (3x8 matrices, 4 frames for smoother zigzag)
         const alienBulletFrames = [
-            [ // Frame 0: Zigzag
+            [ // Frame 0
                 [0,1,0],
-                [1,0,1],
+                [1,0,0],
                 [0,1,0],
-                [1,0,1],
+                [0,0,1],
                 [0,1,0],
-                [1,0,1],
+                [1,0,0],
                 [0,1,0],
-                [1,0,1]
+                [0,0,1]
             ],
-            [ // Frame 1: Zigzag (offset)
-                [1,0,1],
+            [ // Frame 1
                 [0,1,0],
-                [1,0,1],
+                [0,0,1],
                 [0,1,0],
-                [1,0,1],
+                [1,0,0],
                 [0,1,0],
-                [1,0,1],
+                [0,0,1],
+                [0,1,0],
+                [1,0,0]
+            ],
+            [ // Frame 2
+                [0,0,1],
+                [0,1,0],
+                [1,0,0],
+                [0,1,0],
+                [0,0,1],
+                [0,1,0],
+                [1,0,0],
+                [0,1,0]
+            ],
+            [ // Frame 3
+                [1,0,0],
+                [0,1,0],
+                [0,0,1],
+                [0,1,0],
+                [1,0,0],
+                [0,1,0],
+                [0,0,1],
                 [0,1,0]
             ]
         ];
@@ -463,6 +483,8 @@
         let gamePaused = false; // New: Game paused state
         let animationFrameId;
         let playerDeathTimer = 0; // Timer for player death pause
+        let ufoSpawnInterval = 1000;
+        let ufoSpawnTimer = ufoSpawnInterval;
 
         let level = 1; // Current game level
 
@@ -788,8 +810,8 @@
                 }
             }
             // Reset movement state for new wave
-            currentAlienToMoveIndex = 0; // This is now less relevant as movement is block-wise
-            aliensMovedInCurrentCycle = 0; // This is now less relevant as movement is block-wise
+            let currentAlienToMoveIndex = 0; // This is now less relevant as movement is block-wise
+            let aliensMovedInCurrentCycle = 0; // This is now less relevant as movement is block-wise
         }
 
         // Initialize barriers
@@ -1942,6 +1964,9 @@
         document.addEventListener('keydown', e => {
             e.preventDefault(); // Prevent browser default behavior for arrow keys and space
             if (e.key === 'Enter') {
+                if (!gameStarted) {
+                    gameStarted = true;
+                }
                 resetGame(); // Reset game immediately on Enter
                 return;
             }
@@ -2074,3 +2099,4 @@
     </script>
 </body>
 </html>
+
