@@ -162,6 +162,10 @@
         const ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG = 12; 
         const ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG = 8;
 
+        // Define a consistent slot width for aliens to ensure proper alignment
+        // This is based on the widest alien (Octopus: 12px) + horizontal gap (8px)
+        const ALIEN_SLOT_WIDTH_ORIG = ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG + 8; // 12 + 8 = 20 pixels
+
         // Original pixel spacing values
         const ALIEN_HORIZONTAL_GAP_ORIG = 8; // As per user's "8 pixels" gap
         const ALIEN_VERTICAL_GAP_ORIG = 8; // As per user's "8-10 pixels" and vertical drop
@@ -726,9 +730,8 @@
             totalAliens = alienRows * alienCols;
 
             // Calculate initial starting position for the formation's top-left
-            // The widest alien is the Octopus (12px original width)
-            const maxAlienWidthForLayout_ORIG = ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG; 
-            const formationInternalWidth_ORIG = alienCols * (maxAlienWidthForLayout_ORIG + ALIEN_HORIZONTAL_GAP_ORIG) - ALIEN_HORIZONTAL_GAP_ORIG; 
+            // The total width of the formation is alienCols * ALIEN_SLOT_WIDTH_ORIG
+            const formationInternalWidth_ORIG = alienCols * ALIEN_SLOT_WIDTH_ORIG; 
             
             // Set initial formationBaseX and formationBaseY
             formationBaseX = (canvas.width - (formationInternalWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX)) / 2;
@@ -950,22 +953,22 @@
             const startYOffset = canvas.height / 2 - 20 * scaleY;
             const lineHeight = 40 * scaleY;
             
-            // 30 PTS Alien (Octopus)
+            // 30 PTS Alien (Octopus) - Corrected order
             drawPixelArt(octopusAlienMap_frame1, canvas.width / 2 - 100 * scaleX, startYOffset, ALIEN_SPRITE_WIDTH_OCTOPUS_ORIG, ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG, '#fff'); // White aliens
             ctx.fillStyle = '#fff';
             ctx.font = `${20 * scaleY}px 'Press Start 2P'`;
             ctx.textAlign = 'left';
             ctx.fillText('= 30 PTS', canvas.width / 2 - 50 * scaleX, startYOffset + (ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2) + 8 * scaleY);
 
-            // 20 PTS Alien (Crab)
+            // 20 PTS Alien (Crab) - Corrected order
             drawPixelArt(crabAlienMap_frame1, canvas.width / 2 - 100 * scaleX, startYOffset + lineHeight, ALIEN_SPRITE_WIDTH_CRAB_ORIG, ALIEN_SPRITE_HEIGHT_CRAB_ORIG, '#fff'); // White aliens
             ctx.fillText('= 20 PTS', canvas.width / 2 - 50 * scaleX, startYOffset + lineHeight + (ALIEN_SPRITE_HEIGHT_CRAB_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2) + 8 * scaleY);
 
-            // 10 PTS Alien (Squid)
+            // 10 PTS Alien (Squid) - Corrected order
             drawPixelArt(squidAlienMap_frame1, canvas.width / 2 - 100 * scaleX, startYOffset + 2 * lineHeight, ALIEN_SPRITE_WIDTH_SQUID_ORIG, ALIEN_SPRITE_HEIGHT_SQUID_ORIG, '#fff'); // White aliens
             ctx.fillText('= 10 PTS', canvas.width / 2 - 50 * scaleX, startYOffset + 2 * lineHeight + (ALIEN_SPRITE_HEIGHT_SQUID_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2) + 8 * scaleY);
 
-            // UFO 250 PTS (using a placeholder value for start screen, actual value is random)
+            // UFO ??? PTS (using a placeholder value for start screen, actual value is random)
             drawPixelArt(ufoStartScreenMap, canvas.width / 2 - 100 * scaleX, startYOffset + 3 * lineHeight, ufo.width / GAME_PIXEL_MAGNIFICATION, ufo.height / GAME_PIXEL_MAGNIFICATION, '#f00');
             ctx.fillText(`= ??? PTS`, canvas.width / 2 - 50 * scaleX, startYOffset + 3 * lineHeight + (ufo.height * scaleY / 2) + 8 * scaleY);
 
@@ -1109,7 +1112,12 @@
             const alienWidth_ORIG = alien.originalSpriteWidth;
             const alienHeight_ORIG = alien.originalSpriteHeight;
             
-            const x = formationBaseX + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
+            // Calculate base X for the column slot
+            let x = formationBaseX + alien.gridCol * (ALIEN_SLOT_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
+            // Offset to center the alien within its slot
+            const offsetX = ((ALIEN_SLOT_WIDTH_ORIG - alienWidth_ORIG) / 2) * GAME_PIXEL_MAGNIFICATION * scaleX;
+            x += offsetX;
+
             const y = formationBaseY + alien.gridRow * (alienHeight_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
             return { x, y };
         }
@@ -1474,8 +1482,8 @@
                     if (alien.alive && !alien.isExploding) {
                         // For edge detection, use the base position + its grid offset (without localOffset for this check)
                         const alienWidth_ORIG = alien.originalSpriteWidth; // Use the stored original width
-                        const currentAlienX = formationBaseX + alien.gridCol * (alienWidth_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX + ALIEN_HORIZONTAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX);
-                        const currentAlienY = formationBaseY + alien.gridRow * (alien.originalSpriteHeight * GAME_PIXEL_MAGNIFICATION * scaleY + ALIEN_VERTICAL_GAP_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY);
+                        const currentAlienX = getAlienAbsPos(alien).x; // Get the *actual* rendered X position
+                        const currentAlienY = getAlienAbsPos(alien).y; // Get the *actual* rendered Y position
 
                         if (currentAlienX < leftmostAlienX) leftmostAlienX = currentAlienX;
                         if (currentAlienX + (alien.width * scaleX) > rightmostAlienX) rightmostAlienX = currentAlienX + (alien.width * scaleX);
@@ -1689,6 +1697,7 @@
                     
                     ufo.exploding = true; // Set UFO to exploding state
                     ufo.explosionTick = 0; // Reset explosion tick
+                    ufo.scoreToDisplay = ufo.points; // Set score to display
                     currentPlayer.score += ufo.points; // Add UFO points to current player
                     try {
                         playUfoExplosionSound(); // Play UFO explosion sound
@@ -1755,6 +1764,56 @@
             // Filter out bombs marked for removal
             bombsToRemove.sort((a, b) => b - a).forEach(index => {
                 bombs.splice(index, 1);
+            });
+
+            // Alien vs Barrier Collision - NEW LOGIC
+            barriers.forEach(barrier => {
+                aliens.forEach(alien => {
+                    if (alien.alive && !alien.isExploding) {
+                        const alienPos = getAlienAbsPos(alien);
+                        const alienWidthScaled = alien.originalSpriteWidth * GAME_PIXEL_MAGNIFICATION * scaleX;
+                        const alienHeightScaled = alien.originalSpriteHeight * GAME_PIXEL_MAGNIFICATION * scaleY;
+
+                        // Check for bounding box overlap first for efficiency
+                        if (alienPos.x < barrier.x + barrier.width &&
+                            alienPos.x + alienWidthScaled > barrier.x &&
+                            alienPos.y < barrier.y + barrier.height &&
+                            alienPos.y + alienHeightScaled > barrier.y) {
+
+                            // If bounding boxes overlap, check pixel-perfect collision
+                            const alienPixelMap = alienAnimationFrame === 0 ? alien.pixelMap_frame1 : alien.pixelMap_frame2;
+                            const alienPixelSizeX = alienWidthScaled / alien.originalSpriteWidth;
+                            const alienPixelSizeY = alienHeightScaled / alien.originalSpriteHeight;
+
+                            const barrierPixelSizeX = barrier.width / BARRIER_PIXEL_WIDTH_ORIG;
+                            const barrierPixelSizeY = barrier.height / BARRIER_PIXEL_HEIGHT_ORIG;
+
+                            for (let row = 0; row < alienPixelMap.length; row++) {
+                                for (let col = 0; col < alienPixelMap[row].length; col++) {
+                                    if (alienPixelMap[row][col] === 1) {
+                                        // Calculate absolute position of this alien pixel
+                                        const alienPixelAbsX = alienPos.x + col * alienPixelSizeX;
+                                        const alienPixelAbsY = alienPos.y + row * alienPixelSizeY;
+
+                                        // Convert alien pixel's absolute position to barrier's local 32x32 grid coordinates
+                                        const barrierHitCol = Math.floor((alienPixelAbsX - barrier.x) / barrierPixelSizeX);
+                                        const barrierHitRow = Math.floor((alienPixelAbsY - barrier.y) / barrierPixelSizeY);
+
+                                        // Check if this barrier pixel is within bounds and is solid
+                                        if (barrierHitRow >= 0 && barrierHitRow < BARRIER_PIXEL_HEIGHT_ORIG &&
+                                            barrierHitCol >= 0 && barrierHitCol < BARRIER_PIXEL_WIDTH_ORIG &&
+                                            barrier.pixelMap[barrierHitRow][barrierHitCol] === 1) {
+                                            
+                                            // Destroy the barrier pixel
+                                            barrier.pixelMap[barrierHitRow][barrierHitCol] = 0;
+                                            // No need to break loops, alien can damage multiple pixels
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
             });
         }
 
