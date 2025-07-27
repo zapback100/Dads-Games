@@ -29,31 +29,48 @@
             flex-shrink: 0; /* Prevent shrinking */
         }
         .controls {
+            position: fixed; /* Fixed position to overlay on top */
+            bottom: 20px; /* Distance from the bottom */
+            width: 90%; /* Occupy most of the width */
+            max-width: 500px; /* Limit max width for larger screens */
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            justify-content: space-between; /* Space out the button groups */
+            align-items: center;
             padding: 10px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            /* background-color: rgba(255, 255, 255, 0.1); Removed background for cleaner look */
+            /* border-radius: 10px; Removed border-radius */
+            /* box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); Removed box-shadow */
+            z-index: 10; /* Ensure controls are above canvas */
+            left: 50%;
+            transform: translateX(-50%); /* Center the controls */
         }
         .control-button {
-            background-color: #00ff00;
-            color: #000;
-            border: 2px solid #00aa00;
-            padding: 15px 30px;
-            font-size: 24px;
+            background-color: #ff0000; /* Red arcade button */
+            color: #fff; /* White text */
+            border: 2px solid #cc0000; /* Darker red border */
+            width: 80px; /* Large circular button */
+            height: 80px; /* Large circular button */
+            border-radius: 50%; /* Make it circular */
+            font-size: 28px; /* Larger font for readability */
+            font-weight: bold; /* Bold text */
             cursor: pointer;
-            border-radius: 8px;
-            transition: background-color 0.1s, transform 0.1s;
-            box-shadow: 0 5px #00aa00;
+            transition: background-color 0.1s, transform 0.1s, box-shadow 0.1s;
+            box-shadow: 0 8px #cc0000; /* Deeper shadow for 3D effect */
             user-select: none; /* Prevent text selection on touch */
             font-family: 'Press Start 2P', cursive;
+            display: flex; /* Use flexbox to center text */
+            justify-content: center;
+            align-items: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Text shadow for pop */
         }
         .control-button:active {
-            background-color: #00cc00;
-            transform: translateY(2px);
-            box-shadow: 0 3px #00aa00;
+            background-color: #cc0000; /* Darker red when pressed */
+            transform: translateY(4px); /* Move down slightly */
+            box-shadow: 0 4px #990000; /* Smaller shadow when pressed */
+        }
+        .directional-buttons {
+            display: flex;
+            gap: 15px; /* Space between left and right buttons */
         }
         .message-box {
             position: absolute;
@@ -86,9 +103,11 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <div class="controls" id="mobileControls">
-        <button class="control-button" id="leftButton">←</button>
         <button class="control-button" id="shootButton">FIRE</button>
-        <button class="control-button" id="rightButton">→</button>
+        <div class="directional-buttons">
+            <button class="control-button" id="leftButton">←</button>
+            <button class="control-button" id="rightButton">→</button>
+        </div>
     </div>
 
     <div id="messageBox" class="message-box">
@@ -514,6 +533,7 @@
 
         // Global AudioContext for Web Audio API
         let audioCtx;
+        let audioContextStarted = false; // Flag to track if audio context has started
 
         // --- Sound Configurations ---
         const ufoSoundUrl = 'https://raw.githubusercontent.com/zapback100/Dads-Games/Space/ufo_lowpitch.wav';
@@ -540,9 +560,19 @@
             console.log("Debug Mode:", debugMode ? "ON" : "OFF");
         }
 
+        function startAudioContext() {
+            if (!audioContextStarted) {
+                Tone.start().then(() => {
+                    audioContextStarted = true;
+                    console.log("AudioContext started!");
+                }).catch(e => {
+                    console.error("Failed to start AudioContext:", e);
+                });
+            }
+        }
+
         function setupAudio() {
-            // Initialize Tone.js context
-            Tone.start();
+            // Initialize Tone.js context (Tone.start() will be called on user gesture)
             audioCtx = new (window.AudioContext || window.webkitAudioContext)(); // Initialize global AudioContext
 
             // Player shoot sound
@@ -1441,7 +1471,7 @@
             // Lives at bottom left (numerical display positioned above green line)
             ctx.textAlign = 'left';
             ctx.fillStyle = '#fff'; // White for lives number
-            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(252 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 252px original
+            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 248px original (was 252)
 
             // Draw lives as player ship icons at bottom left
             const lifeIconWidth = currentPlayer.width; // Use player's actual width (already scaled)
@@ -1478,7 +1508,7 @@
             // CREDIT 00 at bottom right
             ctx.textAlign = 'right';
             ctx.fillStyle = '#fff'; // White for credit
-            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(252 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 252px original
+            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 248px original (was 252)
 
             // Pause message
             if (gamePaused) {
@@ -2293,8 +2323,9 @@
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') currentPlayer.dx = 0;
         });
 
-        // Mobile Touch Controls
+        // Mobile Touch Controls (mousedown/mouseup for desktop testing, touchstart/touchend for mobile)
         leftButton.addEventListener('touchstart', (e) => {
+            startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
             e.preventDefault();
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
@@ -2304,8 +2335,21 @@
             e.preventDefault();
             currentPlayer.dx = 0;
         });
+        leftButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
+            startAudioContext(); 
+            inactivityTimer = DEMO_TIMEOUT_FRAMES;
+            e.preventDefault();
+            if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
+            currentPlayer.dx = -currentPlayer.speed;
+        });
+        leftButton.addEventListener('mouseup', (e) => { // Added mouseup for desktop testing
+            e.preventDefault();
+            currentPlayer.dx = 0;
+        });
+
 
         rightButton.addEventListener('touchstart', (e) => {
+            startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
             e.preventDefault();
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
@@ -2315,8 +2359,21 @@
             e.preventDefault();
             currentPlayer.dx = 0;
         });
+        rightButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
+            startAudioContext();
+            inactivityTimer = DEMO_TIMEOUT_FRAMES;
+            e.preventDefault();
+            if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
+            currentPlayer.dx = currentPlayer.speed;
+        });
+        rightButton.addEventListener('mouseup', (e) => { // Added mouseup for desktop testing
+            e.preventDefault();
+            currentPlayer.dx = 0;
+        });
+
 
         shootButton.addEventListener('touchstart', (e) => {
+            startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
             e.preventDefault();
             if (demoMode) { // If in demo mode, exit and start new game
@@ -2345,6 +2402,34 @@
             currentPlayer.bulletOnScreen = true; // Set bullet on screen flag
             // setTimeout(() => { currentPlayer.canShoot = true; }, shootCooldown); // Removed
         });
+        shootButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
+            startAudioContext();
+            inactivityTimer = DEMO_TIMEOUT_FRAMES;
+            e.preventDefault();
+            if (demoMode) {
+                demoMode = false;
+                if (!gameStarted) {
+                    gameStarted = true;
+                }
+                resetGame();
+                return;
+            }
+            if (!gameStarted || gameOver || currentPlayer.bulletOnScreen || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused) return;
+            bullets.push({
+                x: Math.floor(currentPlayer.x + (currentPlayer.width * scaleX) / 2 - (PLAYER_BULLET_WIDTH_ORIG * GAME_PIXEL_MAGNIFICATION * scaleX) / 2),
+                y: Math.floor(currentPlayer.y - (PLAYER_BULLET_HEIGHT_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY)),
+                width: PLAYER_BULLET_WIDTH_ORIG,
+                height: PLAYER_BULLET_HEIGHT_ORIG
+            });
+            try {
+                if (shootPlayer) { shootPlayer.start(); }
+                else if (synthesizedShootSynth) { synthesizedShootSynth.triggerAttackRelease('C4', '16n'); }
+            } catch (e) {
+                console.log('Shoot sound playback failed:', e);
+            }
+            currentPlayer.bulletOnScreen = true;
+        });
+
 
         // Initialize and start the game
         window.onload = () => {
