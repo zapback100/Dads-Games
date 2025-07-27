@@ -22,6 +22,7 @@
         canvas {
             background: #000;
             image-rendering: pixelated;
+            image-rendering: crisp-edges; /* Added for better pixel rendering */
             /* Max width/height to ensure it fits within the viewport while maintaining aspect ratio */
             max-width: 95vw; 
             max-height: 95vh; 
@@ -531,6 +532,14 @@
         let playerExplosionPlayer = null; // New player explosion sound player
         let ufoExplosionPlayer = null; // New UFO explosion sound player
 
+        let debugMode = false; // New: Debug mode flag
+
+        // Toggle debug mode
+        function toggleDebugMode() {
+            debugMode = !debugMode;
+            console.log("Debug Mode:", debugMode ? "ON" : "OFF");
+        }
+
         function setupAudio() {
             // Initialize Tone.js context
             Tone.start();
@@ -942,50 +951,63 @@
 
         // Adjust canvas size and scale factors
         function resizeCanvas() {
-            // Target aspect ratio: 224 / 256 = 0.875 (width/height)
             const targetAspectRatio = BASE_GAME_WIDTH / BASE_GAME_HEIGHT;
 
-            let newWidth = window.innerWidth * 0.95;
-            let newHeight = window.innerHeight * 0.95; // Use more of the height for portrait
+            let availableWidth = window.innerWidth * 0.95;
+            let availableHeight = window.innerHeight * 0.95;
 
-            // Calculate dimensions to fit while maintaining aspect ratio
-            if (newWidth / newHeight > targetAspectRatio) {
-                // Window is wider than target, constrain by height
-                newWidth = newHeight * targetAspectRatio;
+            let calculatedWidth = availableWidth;
+            let calculatedHeight = availableHeight;
+
+            if (calculatedWidth / calculatedHeight > targetAspectRatio) {
+                calculatedWidth = calculatedHeight * targetAspectRatio;
             } else {
-                // Window is taller than target, constrain by width
-                newHeight = newWidth / targetAspectRatio;
+                calculatedHeight = calculatedWidth / targetAspectRatio;
             }
 
-            // Ensure a minimum size to prevent elements from becoming too small
-            const minCanvasWidth = 224 * GAME_PIXEL_MAGNIFICATION;
-            const minCanvasHeight = 256 * GAME_PIXEL_MAGNIFICATION;
+            // Ensure a minimum size
+            const minCanvasWidth = BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION;
+            const minCanvasHeight = BASE_GAME_HEIGHT * GAME_PIXEL_MAGNIFICATION;
 
-            if (newWidth < minCanvasWidth) {
-                newWidth = minCanvasWidth;
-                newHeight = newWidth / targetAspectRatio;
+            if (calculatedWidth < minCanvasWidth) {
+                calculatedWidth = minCanvasWidth;
+                calculatedHeight = calculatedWidth / targetAspectRatio;
             }
-            if (newHeight < minCanvasHeight) {
-                newHeight = minCanvasHeight;
-                newWidth = newHeight * targetAspectRatio;
+            if (calculatedHeight < minCanvasHeight) {
+                calculatedHeight = minCanvasHeight;
+                calculatedWidth = calculatedHeight * targetAspectRatio;
             }
 
-            canvas.width = newWidth;
-            canvas.height = newHeight;
+            // Calculate a potential scale factor based on the smaller dimension to ensure uniform scaling
+            // This 'potentialScale' is how many *magnified pixels* (e.g., 3x) fit into the available space
+            let potentialScale = Math.min(
+                calculatedWidth / (BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION),
+                calculatedHeight / (BASE_GAME_HEIGHT * GAME_PIXEL_MAGNIFICATION)
+            );
 
-            // Calculate the actual scaling factors based on the new canvas size relative to the base game resolution
-            scaleX = canvas.width / (BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION);
-            scaleY = canvas.height / (BASE_GAME_HEIGHT * GAME_PIXEL_MAGNIFICATION);
+            // Round down to the nearest whole number to ensure integer pixel drawing
+            // This is the actual integer scaling factor for our magnified pixels
+            let integerScaleFactor = Math.floor(potentialScale);
+            if (integerScaleFactor < 1) integerScaleFactor = 1; // Ensure at least 1x scaling
+
+            // Set canvas dimensions to be exact multiples of BASE_GAME_WIDTH/HEIGHT * GAME_PIXEL_MAGNIFICATION * integerScaleFactor
+            canvas.width = BASE_GAME_WIDTH * GAME_PIXEL_MAGNIFICATION * integerScaleFactor;
+            canvas.height = BASE_GAME_HEIGHT * GAME_PIXEL_MAGNIFICATION * integerScaleFactor;
+
+            // Now, scaleX and scaleY are simply the integerScaleFactor, ensuring uniform, crisp scaling
+            scaleX = integerScaleFactor;
+            scaleY = integerScaleFactor;
 
             // Re-position player and re-initialize game elements based on new scale
-            player.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY); // Player Y at original 208px
+            // Note: player.width/height already include GAME_PIXEL_MAGNIFICATION, so they are already "base magnified"
+            // We just need to multiply by the new scaleX/Y
+            player.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY);
             player.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (player.width * scaleX) / 2);
-            currentPlayer = player; // Update current player reference
+            currentPlayer = player;
 
-            // Adjust UFO Y position based on new scaling (original 35px from top)
             ufo.y = Math.floor(35 * GAME_PIXEL_MAGNIFICATION * scaleY);
 
-            initAliens(); // Re-initialize aliens and their positions with new scale
+            initAliens();
             initBarriers();
             initStars();
 
@@ -1034,11 +1056,11 @@
             ctx.fillText('= 30 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + (ALIEN_SPRITE_HEIGHT_OCTOPUS_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // 20 PTS Alien (Crab) - Corrected order
-            drawPixelArt(crabAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + lineHeight), ALIEN_SPRITE_WIDTH_CRAB_ORIG, ALIEN_SPRITE_HEIGHT_CRAB_ORIG, '#fff'); // White aliens
+            drawPixelArt(crabAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), startYOffset + lineHeight, ALIEN_SPRITE_WIDTH_CRAB_ORIG, ALIEN_SPRITE_HEIGHT_CRAB_ORIG, '#fff'); // White aliens
             ctx.fillText('= 20 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + lineHeight + (ALIEN_SPRITE_HEIGHT_CRAB_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // 10 PTS Alien (Squid) - Corrected order
-            drawPixelArt(squidAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 2 * lineHeight), ALIEN_SPRITE_WIDTH_SQUID_ORIG, ALIEN_SPRITE_HEIGHT_SQUID_ORIG, '#fff'); // White aliens
+            drawPixelArt(squidAlienMap_frame1, Math.floor(canvas.width / 2 - 50 * GAME_PIXEL_MAGNIFICATION * scaleX), startYOffset + 2 * lineHeight, ALIEN_SPRITE_WIDTH_SQUID_ORIG, ALIEN_SPRITE_HEIGHT_SQUID_ORIG, '#fff'); // White aliens
             ctx.fillText('= 10 PTS', Math.floor(canvas.width / 2 + 10 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(startYOffset + 2 * lineHeight + (ALIEN_SPRITE_HEIGHT_SQUID_ORIG * GAME_PIXEL_MAGNIFICATION * scaleY / 2)));
 
             // UFO ??? PTS (using a placeholder value for start screen, actual value is random)
@@ -1081,21 +1103,26 @@
             const patternWidth = pattern[0].length;
             const patternHeight = pattern.length;
 
-            // Calculate the size of each "pixel" in the pattern on the canvas
-            // These values can still be floats due to scaleX/Y
+            // pixelDrawSizeX and Y will now be integers due to the improved resizeCanvas logic
             const pixelDrawSizeX = pixelMagnification * scaleX;
             const pixelDrawSizeY = pixelMagnification * scaleY;
 
             for (let row = 0; row < patternHeight; row++) {
                 for (let col = 0; col < pattern[row].length; col++) {
                     if (pattern[row][col] === 1) {
-                        // Ensure integer coordinates and sizes for crisp pixel rendering
-                        ctx.fillRect(
-                            Math.floor(x + col * pixelDrawSizeX),
-                            Math.floor(y + row * pixelDrawSizeY),
-                            Math.floor(pixelDrawSizeX),
-                            Math.floor(pixelDrawSizeY)
-                        );
+                        const drawX = Math.floor(x + col * pixelDrawSizeX);
+                        const drawY = Math.floor(y + row * pixelDrawSizeY);
+                        const drawWidth = Math.floor(pixelDrawSizeX);
+                        const drawHeight = Math.floor(pixelDrawSizeY);
+
+                        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
+
+                        // Debug mode: draw a thin red border around each pixel
+                        if (debugMode) {
+                            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)'; // Semi-transparent red
+                            ctx.lineWidth = 0.5; // Very thin line
+                            ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+                        }
                     }
                 }
             }
@@ -1231,7 +1258,6 @@
                         const explosionOriginalWidth = patternToDraw[0].length; // 11
                         const explosionOriginalHeight = patternToDraw.length; // 11
 
-                        // Calculate the rendered width/height of the explosion pattern (scaled by GAME_PIXEL_MAGNIFICATION and current scale)
                         const renderedExplosionWidth = Math.floor(explosionOriginalWidth * GAME_PIXEL_MAGNIFICATION * scaleX);
                         const renderedExplosionHeight = Math.floor(explosionOriginalHeight * GAME_PIXEL_MAGNIFICATION * scaleY);
 
@@ -1993,9 +2019,6 @@
                     ufo.displayScore = false;
                     ufo.scoreDisplayTimer = 0;
                     ufoSpawnTimer = ufoSpawnInterval;
-                    playerDeathTimer = 0;
-                    initAliens();
-                    initBarriers();
                     currentPlayer.x = Math.floor((BASE_GAME_WIDTH / 2 * GAME_PIXEL_MAGNIFICATION * scaleX) - (currentPlayer.width * scaleX) / 2);
                     currentPlayer.y = Math.floor(208 * GAME_PIXEL_MAGNIFICATION * scaleY);
                 }
@@ -2006,9 +2029,14 @@
                 // Demo mode logic
                 // Player movement
                 currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED;
-                if (currentPlayer.x < 0 || currentPlayer.x + (currentPlayer.width * scaleX) > canvas.width) {
-                    demoPlayerDirection *= -1;
-                    currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED; // Reverse direction immediately
+                if (currentPlayer.x < 0) {
+                    currentPlayer.x = 0; // Prevent going off-screen left
+                    demoPlayerDirection = 1; // Change direction to right
+                    currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED;
+                } else if (currentPlayer.x + (currentPlayer.width * scaleX) > canvas.width) {
+                    currentPlayer.x = canvas.width - (currentPlayer.width * scaleX); // Prevent going off-screen right
+                    demoPlayerDirection = -1; // Change direction to left
+                    currentPlayer.dx = demoPlayerDirection * DEMO_PLAYER_SPEED;
                 }
 
                 // Player shooting
@@ -2351,4 +2379,3 @@
     </script>
 </body>
 </html>
-
