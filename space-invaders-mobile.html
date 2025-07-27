@@ -15,7 +15,7 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden;
+            overflow: hidden; /* Prevent scrolling */
             font-family: 'Press Start 2P', cursive; /* Retro font */
             color: #fff;
         }
@@ -30,16 +30,13 @@
         }
         .controls {
             position: fixed; /* Fixed position to overlay on top */
-            bottom: 20px; /* Distance from the bottom */
+            bottom: 50px; /* Increased distance from the bottom */
             width: 90%; /* Occupy most of the width */
             max-width: 500px; /* Limit max width for larger screens */
             display: flex; /* Always display flex as per CSS */
             justify-content: space-between; /* Space out the button groups */
             align-items: center;
             padding: 10px;
-            /* background-color: rgba(255, 255, 255, 0.1); Removed background for cleaner look */
-            /* border-radius: 10px; Removed border-radius */
-            /* box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); Removed box-shadow */
             z-index: 10; /* Ensure controls are above canvas */
             left: 50%;
             transform: translateX(-50%); /* Center the controls */
@@ -71,6 +68,10 @@
         .directional-buttons {
             display: flex;
             gap: 15px; /* Space between left and right buttons */
+            background-color: #333; /* Dark grey background for joystick pad effect */
+            border-radius: 40px; /* More rounded corners for the pad */
+            padding: 10px 20px; /* Padding around the buttons inside the pad */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5); /* Inner shadow for depth */
         }
         .message-box {
             position: absolute;
@@ -1043,8 +1044,12 @@
             initBarriers();
             initStars();
 
-            // Always display mobile controls. CSS will handle their positioning.
-            mobileControls.style.display = 'flex'; 
+            // Conditional display for mobile controls based on screen width
+            if (window.innerWidth < 768) { // Assuming 768px is the breakpoint for mobile/tablet
+                mobileControls.style.display = 'flex';
+            } else {
+                mobileControls.style.display = 'none';
+            }
             console.log("Canvas dimensions after resize:", canvas.width, "x", canvas.height);
         }
 
