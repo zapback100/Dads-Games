@@ -65,14 +65,46 @@
             transform: translateY(4px); /* Move down slightly */
             box-shadow: 0 4px #990000; /* Smaller shadow when pressed */
         }
-        .directional-buttons {
+        /* Removed .directional-buttons as it's replaced by joystick */
+
+        .joystick-container {
+            position: relative; /* Container for base and knob */
+            width: 100px; /* Diameter of the joystick base */
+            height: 100px; /* Diameter of the joystick base */
+            border-radius: 50%;
             display: flex;
-            gap: 15px; /* Space between left and right buttons */
-            background-color: #333; /* Dark grey background for joystick pad effect */
-            border-radius: 40px; /* More rounded corners for the pad */
-            padding: 10px 20px; /* Padding around the buttons inside the pad */
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.5); /* Inner shadow for depth */
+            justify-content: center;
+            align-items: center;
+            /* Position the joystick to the left within the controls flexbox */
+            margin-right: auto; 
+            margin-left: 0;
         }
+
+        .joystick-base {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: #333; /* Dark grey */
+            border-radius: 50%;
+            opacity: 0.7; /* Semi-transparent */
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8); /* Inner shadow for depth */
+        }
+
+        .joystick-knob {
+            position: absolute;
+            width: 60px; /* Diameter of the knob */
+            height: 60px; /* Diameter of the knob */
+            background-color: #ff0000; /* Red */
+            border-radius: 50%;
+            box-shadow: 0 5px #cc0000, /* Bottom shadow */
+                        inset 0 0 10px rgba(255,255,255,0.3); /* Inner highlight for gloss */
+            cursor: grab;
+            transition: transform 0.05s ease-out; /* Smooth snap back */
+        }
+        .joystick-knob:active {
+            cursor: grabbing;
+        }
+
         .message-box {
             position: absolute;
             top: 50%;
@@ -104,11 +136,11 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <div class="controls" id="mobileControls">
-        <button class="control-button" id="shootButton">FIRE</button>
-        <div class="directional-buttons">
-            <button class="control-button" id="leftButton">←</button>
-            <button class="control-button" id="rightButton">→</button>
+        <div class="joystick-container" id="joystickContainer">
+            <div class="joystick-base" id="joystickBase"></div>
+            <div class="joystick-knob" id="joystickKnob"></div>
         </div>
+        <button class="control-button" id="shootButton">FIRE</button>
     </div>
 
     <div id="messageBox" class="message-box">
@@ -120,12 +152,23 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const mobileControls = document.getElementById('mobileControls');
-        const leftButton = document.getElementById('leftButton');
-        const rightButton = document.getElementById('rightButton');
+        // Removed leftButton and rightButton as they are replaced by the joystick
         const shootButton = document.getElementById('shootButton');
         const messageBox = document.getElementById('messageBox');
         const messageText = document.getElementById('messageText');
         const messageButton = document.getElementById('messageButton');
+
+        // Joystick elements
+        const joystickContainer = document.getElementById('joystickContainer');
+        const joystickBase = document.getElementById('joystickBase');
+        const joystickKnob = document.getElementById('joystickKnob');
+
+        // Joystick state variables
+        let isDraggingJoystick = false;
+        let initialTouchX = 0;
+        let knobCurrentX = 0; // Current transformX value of the knob
+        const joystickRadius = (joystickBase.offsetWidth - joystickKnob.offsetWidth) / 2; // Max horizontal travel for knob
+        const deadzoneThreshold = 10; // Pixels for deadzone
 
         // Ensure pixel art is crisp
         ctx.imageSmoothingEnabled = false;
@@ -2327,52 +2370,84 @@
             if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') currentPlayer.dx = 0;
         });
 
-        // Mobile Touch Controls (mousedown/mouseup for desktop testing, touchstart/touchend for mobile)
-        leftButton.addEventListener('touchstart', (e) => {
+        // Joystick Touch Controls
+        joystickBase.addEventListener('touchstart', (e) => {
             startAudioContext(); // Ensure audio context starts on first touch
             inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
-            e.preventDefault();
+            e.preventDefault(); // Prevent scrolling
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
-            currentPlayer.dx = -currentPlayer.speed;
-        });
-        leftButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            currentPlayer.dx = 0;
-        });
-        leftButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
-            startAudioContext(); 
-            inactivityTimer = DEMO_TIMEOUT_FRAMES;
-            e.preventDefault();
-            if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
-            currentPlayer.dx = -currentPlayer.speed;
-        });
-        leftButton.addEventListener('mouseup', (e) => { // Added mouseup for desktop testing
-            e.preventDefault();
-            currentPlayer.dx = 0;
+
+            isDraggingJoystick = true;
+            initialTouchX = e.touches[0].clientX;
+            // Store the current knob position relative to its center for accurate dragging
+            const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
+            knobCurrentX = transformMatch ? parseFloat(transformMatch[1]) : 0;
         });
 
+        joystickBase.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            if (!isDraggingJoystick) return;
 
-        rightButton.addEventListener('touchstart', (e) => {
-            startAudioContext(); // Ensure audio context starts on first touch
-            inactivityTimer = DEMO_TIMEOUT_FRAMES; // Reset inactivity timer
-            e.preventDefault();
-            if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
-            currentPlayer.dx = currentPlayer.speed;
+            const currentTouchX = e.touches[0].clientX;
+            let dragOffset = currentTouchX - initialTouchX;
+
+            // Constrain drag offset within joystickRadius
+            dragOffset = Math.max(-joystickRadius, Math.min(joystickRadius, dragOffset));
+
+            // Apply deadzone
+            if (Math.abs(dragOffset) < deadzoneThreshold) {
+                currentPlayer.dx = 0;
+                joystickKnob.style.transform = `translateX(0px)`;
+            } else {
+                // Map dragOffset to player speed
+                currentPlayer.dx = currentPlayer.speed * (dragOffset / joystickRadius);
+                joystickKnob.style.transform = `translateX(${dragOffset}px)`;
+            }
         });
-        rightButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            currentPlayer.dx = 0;
+
+        joystickBase.addEventListener('touchend', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            isDraggingJoystick = false;
+            currentPlayer.dx = 0; // Stop player movement
+            joystickKnob.style.transform = `translateX(0px)`; // Snap knob back to center
         });
-        rightButton.addEventListener('mousedown', (e) => { // Added mousedown for desktop testing
+
+        // Also add mouse events for desktop testing of joystick
+        joystickBase.addEventListener('mousedown', (e) => {
             startAudioContext();
             inactivityTimer = DEMO_TIMEOUT_FRAMES;
             e.preventDefault();
             if (!gameStarted || gameOver || currentPlayer.isExploding || playerDeathTimer > 0 || gamePaused || demoMode) return;
-            currentPlayer.dx = currentPlayer.speed;
+
+            isDraggingJoystick = true;
+            initialTouchX = e.clientX;
+            const transformMatch = joystickKnob.style.transform.match(/translateX\(([-.\d]+)px\)/);
+            knobCurrentX = transformMatch ? parseFloat(transformMatch[1]) : 0;
         });
-        rightButton.addEventListener('mouseup', (e) => { // Added mouseup for desktop testing
+
+        document.addEventListener('mousemove', (e) => { // Use document for mousemove to allow dragging outside base
+            if (!isDraggingJoystick) return;
             e.preventDefault();
+
+            const currentTouchX = e.clientX;
+            let dragOffset = currentTouchX - initialTouchX;
+            dragOffset = Math.max(-joystickRadius, Math.min(joystickRadius, dragOffset));
+
+            if (Math.abs(dragOffset) < deadzoneThreshold) {
+                currentPlayer.dx = 0;
+                joystickKnob.style.transform = `translateX(0px)`;
+            } else {
+                currentPlayer.dx = currentPlayer.speed * (dragOffset / joystickRadius);
+                joystickKnob.style.transform = `translateX(${dragOffset}px)`;
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => { // Use document for mouseup
+            if (!isDraggingJoystick) return;
+            e.preventDefault();
+            isDraggingJoystick = false;
             currentPlayer.dx = 0;
+            joystickKnob.style.transform = `translateX(0px)`;
         });
 
 
