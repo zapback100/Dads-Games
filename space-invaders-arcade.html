@@ -1441,7 +1441,7 @@
             // Lives at bottom left (numerical display positioned above green line)
             ctx.textAlign = 'left';
             ctx.fillStyle = '#fff'; // White for lives number
-            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Y = 248px original
+            ctx.fillText(`${currentPlayer.lives}`, Math.floor(8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(252 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 252px original
 
             // Draw lives as player ship icons at bottom left
             const lifeIconWidth = currentPlayer.width; // Use player's actual width (already scaled)
@@ -1478,7 +1478,7 @@
             // CREDIT 00 at bottom right
             ctx.textAlign = 'right';
             ctx.fillStyle = '#fff'; // White for credit
-            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(248 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Aligned with lives number
+            ctx.fillText(`CREDIT 00`, Math.floor(canvas.width - 8 * GAME_PIXEL_MAGNIFICATION * scaleX), Math.floor(252 * GAME_PIXEL_MAGNIFICATION * scaleY)); // Adjusted Y to 252px original
 
             // Pause message
             if (gamePaused) {
@@ -2110,6 +2110,10 @@
             }
 
             if (gameOver) {
+                // Stop UFO sound if it's playing when game ends
+                if (ufoPlayer && ufoPlayer.state === 'started') { ufoPlayer.stop(); }
+                else if (ufoSynth && ufoSynth.state === 'started') { ufoSynth.stop(); }
+
                 ctx.fillStyle = '#00ff00';
                 // Adjusted font sizes and Y positions for better fit
                 ctx.font = `${15 * GAME_PIXEL_MAGNIFICATION * scaleY}px 'Press Start 2P'`;
@@ -2277,6 +2281,11 @@
                 // currentPlayer.canShoot = false; // Removed: No longer needed for cooldown
                 currentPlayer.bulletOnScreen = true; // Set bullet on screen flag
                 // setTimeout(() => { currentPlayer.canShoot = true; }, shootCooldown); // Removed: No longer needed
+            }
+
+            // Toggle debug mode with 'D' key
+            if (e.key === 'd' || e.key === 'D') {
+                toggleDebugMode();
             }
         });
 
