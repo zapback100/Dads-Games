@@ -1,0 +1,124 @@
+:root {
+    --bg-color: #050505;
+    --neon-blue: #00f3ff;
+    --neon-pink: #ff00ff;
+    --neon-yellow: #ffee00;
+    --neon-red: #ff0000;
+    --wall-color: #1919a6;
+}
+
+body {
+    background-color: var(--bg-color);
+    background-image:
+        linear-gradient(rgba(0, 20, 40, 0.8) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 20, 40, 0.8) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: white;
+    font-family: 'Orbitron', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+.game-container {
+    text-align: center;
+    padding: 20px;
+    position: relative;
+    z-index: 10;
+}
+
+h1 {
+    color: var(--neon-yellow);
+    text-shadow:
+        0 0 5px var(--neon-yellow),
+        0 0 10px var(--neon-yellow),
+        0 0 20px var(--neon-yellow),
+        0 0 40px #ff00de;
+    margin: 0 0 20px 0;
+    font-size: 4rem;
+    letter-spacing: 8px;
+    font-family: 'Press Start 2P', cursive;
+    animation: pulse 2s infinite alternate;
+}
+
+@keyframes pulse {
+    from {
+        text-shadow: 0 0 5px var(--neon-yellow), 0 0 10px var(--neon-yellow);
+    }
+
+    to {
+        text-shadow: 0 0 20px var(--neon-yellow), 0 0 30px #ff00de;
+    }
+}
+
+canvas {
+    display: block;
+    background-color: #000;
+    border: 3px solid var(--wall-color);
+    box-shadow: 0 0 15px var(--wall-color);
+    margin: 0 auto;
+}
+
+/* Start Screen Overlay */
+.start-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.start-screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.start-content {
+    text-align: center;
+}
+
+.start-content h2 {
+    font-family: 'Press Start 2P', cursive;
+    color: var(--neon-blue);
+    font-size: 2rem;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px var(--neon-blue);
+    animation: blink 0.5s infinite;
+}
+
+.start-content p {
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+.controls-hint {
+    margin-top: 20px;
+    color: #888;
+    font-size: 0.9rem;
+    font-family: 'Orbitron', sans-serif;
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
+}

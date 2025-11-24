@@ -1,0 +1,703 @@
+PAC-MAN CLASSIC – DESIGN SPEC (TEXT FILE VERSION)
+(Use / save this whole content as e.g. pacman_design.txt)
+
+--------------------------------------------------
+1. CORE GAME LOOP
+--------------------------------------------------
+
+1. Player controls Pac-Man in a single-screen maze viewed from above.
+
+2. Objective per level
+   - Eat all pellets (small dots + power pellets) to clear the level.
+   - When all pellets are eaten, level ends and the next level begins.
+
+3. Hazards
+   - Four ghosts patrol the maze.
+   - If Pac-Man collides with a non-vulnerable ghost, Pac-Man loses a life.
+   - When all lives are lost, the game is over.
+
+4. Power pellets (energizers)
+   - Eating a power pellet turns all active ghosts “frightened” (blue) for a short time.
+   - In frightened state, ghosts move more erratically and can be eaten by Pac-Man.
+   - Eating a frightened ghost removes it from play temporarily and awards bonus points.
+   - The ghost’s eyes return to the ghost house, regenerate, and then the ghost re-enters the maze.
+
+5. Bonus fruit
+   - Each level has a bonus item (fruit or symbol) that appears briefly in the center corridor, below the ghost house, twice per level.
+   - Touching the fruit gives a large score bonus.
+   - Fruit disappears after a short time if not collected.
+
+6. Lives and continuation
+   - Pac-Man starts with a fixed number of lives (e.g. 3).
+   - An extra life is awarded when a score threshold is reached (e.g. 10,000 points).
+   - When Pac-Man dies and still has lives remaining, the level restarts with:
+     - Maze layout and pellets the same as before death.
+     - Ghosts reset to starting positions/house.
+     - Score and level preserved.
+
+--------------------------------------------------
+2. SCREEN, GRID AND MAZE LAYOUT
+--------------------------------------------------
+
+2.1 Coordinate system
+
+1. Screen
+   - Original arcade orientation is vertical (portrait).
+   - Logical design: treat the playfield as a grid of tiles.
+
+2. Tile grid
+   - Maze: 28 columns × 31 rows of walkable/visible tiles (common convention for clones).
+   - Each tile can be:
+     - Wall (blocked)
+     - Empty corridor
+     - Corridor with pellet
+     - Corridor with power pellet
+     - Special (warp tunnel, ghost gate, ghost house interior, etc.)
+
+3. Movement alignment
+   - Pac-Man and ghosts move from tile center to tile center.
+   - Direction changes are allowed only at tile centers (or at least when aligned to grid).
+
+2.2 Maze contents per level
+
+1. Pellets
+   - Approximately 240 small pellets.
+   - 4 power pellets, placed in the outer corners of the maze.
+   - Total pellets: 244 (small + power).
+
+2. Ghost house
+   - Central box in the middle of the maze (roughly center of grid).
+   - Contains starting positions for ghosts and respawn area.
+
+3. Warp tunnels
+   - One horizontal tunnel on the far left edge and one on the far right edge of the maze, on the same row.
+   - Exiting the maze on one side wraps the character to the same row on the opposite side.
+
+2.3 Major layout elements
+
+1. Outer walls and boundaries
+   - Solid walls define the boundary of the maze, except for left/right tunnel openings.
+   - No path exists outside the defined maze.
+
+2. Central ghost house
+   - Rectangular enclosure in the center of the maze.
+   - Has a horizontal “gate” tile (or short segment) at the top where ghosts exit/enter.
+   - Pac-Man cannot pass through the gate tile in the original; treat it as blocked for Pac-Man, passable only by ghosts.
+
+3. Warp tunnels
+   - On the leftmost and rightmost columns of a specific row (mid-height of maze).
+   - Special behavior:
+     - Entities entering a tunnel have their position wrapped to the opposite side.
+     - Ghosts often move slower while in the tunnel than in normal corridors.
+
+4. Corridors and intersections
+   - Mostly one-tile-wide corridors.
+   - 3-way and 4-way intersections where multiple directions are possible.
+   - Some dead ends with pellets to create risk-reward situations.
+   - “Loop routes” exist where Pac-Man can circle sections of the maze to dodge ghosts.
+
+5. HUD region
+   - Top: score, high score, status messages (e.g. “READY!”, “GAME OVER”).
+   - Bottom: lives remaining (Pac-Man icons) and level indicator (fruit icons representing completed levels).
+
+--------------------------------------------------
+3. ENTITIES AND THEIR PROPERTIES
+--------------------------------------------------
+
+3.1 Pac-Man
+
+1. Movement
+   - Always moving at constant speed when possible.
+   - Player input chooses desired direction (up/down/left/right).
+   - Direction change is buffered:
+     - When input is pressed, Pac-Man will turn at the next available tile center if that direction is not blocked by a wall.
+   - Pac-Man can stop only if facing a wall and no valid input provides an alternate direction.
+
+2. Collision
+   - Pellet collision when Pac-Man’s tile center passes over a tile with a pellet.
+   - Ghost collision when Pac-Man and a ghost overlap the same tile center (or sufficiently close in distance).
+
+3. States
+   - Normal state:
+     - Colliding with a non-frightened ghost causes Pac-Man to die.
+   - Powered state (after eating power pellet):
+     - Ghosts become vulnerable and can be eaten.
+     - Pac-Man’s interaction with frightened ghosts changes from death to ghost-eat.
+
+3.2 Ghosts
+
+There are four ghosts, each with different targeting logic:
+
+1. Blinky (red) – “Chaser”
+   - Targets Pac-Man’s current tile in chase mode.
+   - Becomes more aggressive and faster as pellets are eaten (“Cruise Elroy” behavior in the original).
+
+2. Pinky (pink) – “Ambusher”
+   - Targets a tile a few steps ahead of Pac-Man in his current movement direction, trying to ambush.
+
+3. Inky (cyan) – “Unpredictable”
+   - Uses a combination of Pac-Man’s position and Blinky’s position to determine a target tile, resulting in more complex, less predictable behavior.
+
+4. Clyde (orange) – “Shy”
+   - Sometimes chases Pac-Man.
+   - If he gets too close to Pac-Man, he retreats toward his home corner (lower-left).
+
+Common ghost properties:
+
+1. Movement
+   - Move at constant speed along corridors.
+   - At each tile center, choose a direction based on their AI mode and available paths.
+   - Normally, ghosts do not reverse direction except:
+     - When switching between scatter and chase modes.
+     - When switching into frightened mode (power pellet).
+
+2. Modes
+   - Scatter:
+     - Each ghost targets a fixed “corner” area of the maze.
+   - Chase:
+     - Each ghost uses its personality-specific target logic to pursue Pac-Man.
+   - Frightened:
+     - Triggered by Pac-Man eating a power pellet.
+     - Ghosts turn blue, slow down, and choose semi-random directions at intersections.
+     - Pac-Man can eat them for points.
+   - Eaten:
+     - Ghost body disappears; only eyes remain.
+     - Eyes travel at high speed back to ghost house.
+     - Once they reach the house center, the ghost respawns in normal form and re-enters the maze.
+
+3.3 Pellets
+
+1. Small pellets (dots)
+   - Placed on most walkable tiles.
+   - Collected when Pac-Man passes over their tile.
+   - Grant a small, fixed amount of score each.
+
+2. Power pellets (energizers)
+   - Four per level, placed near the four maze corners.
+   - Larger, flashing dots.
+   - Eating one:
+     - Grants a higher fixed score.
+     - Switches ghosts into frightened mode for a limited duration.
+     - Causes ghosts to reverse direction.
+
+3.4 Fruit (bonus items)
+
+1. Appearance
+   - Fruit appears in the center corridor below the ghost house.
+   - Typically appears twice per level:
+     - After a certain number of pellets are eaten.
+     - After a later pellet threshold.
+
+2. Behavior
+   - Fruit persists for a limited time.
+   - If Pac-Man touches it, he gains points based on fruit type.
+   - If not collected within the duration, it disappears.
+
+3. Fruit progression (typical sequence by level)
+   - Level 1: Cherry – low value
+   - Level 2: Strawberry – higher
+   - Levels 3–4: Orange/Peach
+   - Levels 5–6: Apple
+   - Levels 7–8: Melon
+   - Levels 9–10: Galaxian flagship
+   - Levels 11–12: Bell
+   - Levels 13+: Key (highest value, repeated)
+
+(Exact point values can be tuned, but usually start at 100 and go up to 5000.)
+
+3.5 Lives and scoring
+
+1. Typical scoring values (you can adjust for your design)
+   - Pellet: 10 points.
+   - Power pellet: 50 points.
+   - Ghosts eaten during one power-pellet period:
+     - First ghost: 200
+     - Second: 400
+     - Third: 800
+     - Fourth: 1600
+   - Fruit: 100–5000 points depending on type.
+
+2. Extra lives
+   - One extra life at a specific score threshold (e.g. 10,000).
+   - Number and thresholds can be configurable.
+
+--------------------------------------------------
+4. LEVEL PROGRESSION AND DIFFICULTY
+--------------------------------------------------
+
+4.1 Maze and levels
+
+1. Maze layout
+   - The visible maze layout is the same in every level in the original arcade game.
+   - Difficulty changes via speed, timing, and frightened durations rather than new mazes.
+
+2. Level indicator
+   - At the bottom of the screen, fruit icons appear, representing completed levels.
+   - The current level’s fruit is displayed as well.
+
+4.2 Fruit by level (classic pattern)
+
+1. Standard sequence
+   - Level 1: Cherry
+   - Level 2: Strawberry
+   - Levels 3–4: Orange/Peach
+   - Levels 5–6: Apple
+   - Levels 7–8: Melon
+   - Levels 9–10: Galaxian
+   - Levels 11–12: Bell
+   - Levels 13+: Key (repeated every level)
+
+2. Implementation
+   - Create a lookup table indexed by level:
+     - Each entry: fruit type, fruit sprite, fruit score value.
+   - For levels beyond last defined fruit, repeat the final entry (Key).
+
+4.3 Speed and behavior scaling
+
+Conceptually:
+
+1. Early levels
+   - Pac-Man is slightly faster than ghosts in open corridors.
+   - Frightened durations are long after power pellets.
+   - Ghosts exit the house relatively slowly at level start.
+
+2. Mid levels
+   - Ghost speeds increase.
+   - Pac-Man speed may increase slightly, but ghosts gain more.
+   - Frightened durations become shorter; fewer opportunities to eat multiple ghosts.
+
+3. High levels
+   - Ghosts are very fast.
+   - Frightened durations become very short or effectively zero.
+   - Ghosts exit the house quickly at level start.
+   - Overall difficulty is much higher.
+
+4. Tunable parameters per level
+   - Pac-Man speed (normal / frightened / tunnel).
+   - Ghost speed (normal / tunnel / frightened).
+   - Frightened mode duration.
+   - Ghost house exit timing (how long before each ghost leaves at the start or after respawn).
+
+5. Kill screen (original behavior)
+   - In the original arcade version, level 256 has a bug that corrupts half the maze and makes it impossible to clear.
+   - In a modern design, you can either:
+     - Reproduce this “kill screen” as a homage, or
+     - Allow infinite progression with capped difficulty.
+
+--------------------------------------------------
+5. GHOST MODE SCHEDULING (HIGH-LEVEL)
+--------------------------------------------------
+
+Ghosts alternate between Scatter and Chase modes according to a level-specific schedule.
+
+1. Modes
+   - Scatter:
+     - Each ghost targets a specific corner of the maze.
+     - Effect: gives Pac-Man brief breaks from direct pursuit.
+   - Chase:
+     - Each ghost targets Pac-Man using its personality rules.
+     - Effect: high-pressure periods of pursuit.
+
+2. Schedule concept
+   - The game runs a global mode timer.
+   - For each level, define a list of (mode, duration) pairs, for example:
+     - Scatter for X seconds.
+     - Chase for Y seconds.
+     - Scatter for X2 seconds.
+     - Chase for Y2 seconds.
+     - After several cycles, stay in Chase mode permanently.
+
+3. Direction reversals
+   - When switching between Scatter and Chase modes, all ghosts immediately reverse direction.
+   - When switching into Frightened mode (after a power pellet), ghosts also reverse.
+
+4. Frightened mode integration
+   - Frightened is an overlay triggered by power pellets:
+     - Pauses the Scatter/Chase timer or runs in parallel (design choice).
+     - When Frightened ends, ghosts resume whichever mode (Scatter or Chase) the schedule indicates at that time.
+   - Direction reversal occurs on:
+     - Entering Frightened.
+     - Leaving Frightened (to resume Scatter/Chase trajectories).
+
+--------------------------------------------------
+6. ADDITIONAL PRESENTATION DETAILS
+--------------------------------------------------
+
+1. Intermission cut-scenes
+   - Short comedic scenes between certain levels.
+   - Typical placements: after levels 2, 5, and 9 (original arcade pattern).
+   - Simple cartoon animations showing Pac-Man and ghosts in humorous situations.
+
+2. Attract mode / demo
+   - Title screen with:
+     - Game logo.
+     - Credit / start instructions.
+     - Score legend (showing point values for pellets, power pellets, ghosts, and fruit).
+   - Non-interactive demo:
+     - Pac-Man and ghosts moving in the maze.
+     - Demonstrates gameplay loop.
+     - Starts automatically after a period of inactivity.
+
+3. Messages
+   - “READY!” appears at start of each life.
+   - “GAME OVER” appears when no lives remain.
+   - Optional: “INSERT COIN,” “PRESS START” on title/attract screen.
+
+--------------------------------------------------
+7. PRACTICAL USE FOR YOUR DESIGN
+--------------------------------------------------
+
+To build a playable Pac-Man-style game from this document:
+
+1. Data structures
+   - Tile map (28×31):
+     - Store tile type (wall, empty, pellet, power pellet, tunnel, gate, etc.).
+   - Entity data:
+     - Pac-Man: position, direction, state (normal/powered).
+     - Ghosts: position, direction, current mode, personality type, frightened timer.
+     - Fruit: type, active flag, spawn timer.
+   - Level parameters:
+     - Speeds, frightened duration, scatter/chase schedule, fruit mapping, score thresholds.
+
+2. Logic systems
+   - Input handling: maps player inputs to desired directions.
+   - Movement:
+     - Move entities along grid at speeds defined by level.
+     - Allow direction changes when aligned to tile center and not blocked.
+   - Collision:
+     - Pac-Man vs pellets/power pellets.
+     - Pac-Man vs ghosts (state-dependent results).
+     - Pac-Man vs fruit.
+   - Mode scheduling:
+     - Global scatter/chase timer.
+     - Power pellet frightened timers per activation.
+   - Scoring, lives, and level transitions:
+     - Update score on events.
+     - Award extra life at threshold.
+     - On all pellets cleared, advance level and reset timers/parameters.
+
+3. Rendering
+   - Draw maze walls, pellets, fruit, characters, HUD.
+   - Animate Pac-Man mouth, ghost eyes and body states (normal, frightened, eyes-only).
+
+--------------------------------------------------
+8. AUDIO / SOUND EFFECTS
+--------------------------------------------------
+
+8.1 Audio design goals
+
+1. Every major gameplay event has a distinct sound cue:
+   - Pellets, power pellets, fruit, ghosts, extra life, death, level start, level end.
+
+2. Continuous background sounds:
+   - A siren-like loop that changes with danger level.
+   - A distinct frightened loop for power pellet time.
+
+3. Limited channels:
+   - Keep to a small number of simultaneous sounds (e.g., background + 2 SFX).
+
+8.2 Continuous background sounds
+
+1. Ghost “siren” loop (normal play)
+   - Plays during normal Scatter/Chase mode.
+   - Intensity / pitch rises as the level progresses or as more pellets are eaten.
+   - Implement 2–4 variants:
+     - Siren_Low: early level / low danger.
+     - Siren_Mid: mid-level.
+     - Siren_High: late level / high danger.
+   - Switch variant based on number of pellets remaining or level number.
+
+2. Frightened-mode loop
+   - Replaces or overlays the normal siren while ghosts are blue.
+   - Characteristics:
+     - Slightly lower energy or different pattern to indicate vulnerability.
+     - In the final portion of frightened time, the loop can speed up or change pitch to warn the player that ghosts are about to revert.
+
+8.3 Pac-Man sounds (one-shot SFX)
+
+1. Pellet “chomp” / “waka-waka”
+   - Trigger: small pellet eaten.
+   - Very short blip; alternate between two pitches for “waka-waka” rhythm.
+   - Must be frequent but not overwhelming; quiet enough to let other SFX stand out.
+
+2. Power pellet eaten
+   - Trigger: power pellet collected.
+   - Distinct sound, slightly longer than small pellet sound.
+   - Immediately:
+     - Switch background from siren to frightened loop.
+     - Turn ghosts blue.
+
+3. Fruit collected
+   - Trigger: fruit touched by Pac-Man.
+   - Bright, rewarding sound (chime or short arpeggio).
+   - Should be clearly different from pellets and ghosts eaten.
+
+4. Extra life
+   - Trigger: score surpasses extra-life threshold.
+   - Short celebratory jingle (1–2 seconds).
+   - Can temporarily lower siren volume while it plays.
+
+5. Level complete
+   - Trigger: last pellet of the level eaten.
+   - Short victory or transition jingle.
+   - Maze fade or transition happens during or immediately after this.
+
+6. Pac-Man death
+   - Trigger: collision with non-frightened ghost.
+   - Iconic “death melody”; all other sounds stop while this plays.
+   - After it finishes, handle life decrement and either:
+     - Show “GAME OVER”, or
+     - Restart level with remaining lives.
+
+7. Game start / level start jingle
+   - Trigger:
+     - Start of game.
+     - Start of each level or restart after death.
+   - Short intro melody.
+   - Ghosts and Pac-Man remain idle until jingle ends; then gameplay begins and siren starts.
+
+8.4 Ghost-related sounds
+
+1. Ghost frightened state
+   - Indicated mainly by the frightened loop.
+   - Optional: add a soft ticking layer or understated pulsation to emphasize tempo.
+
+2. Ghost eaten
+   - Trigger: Pac-Man collides with a blue ghost.
+   - Strong, distinct effect; louder than pellet sounds.
+   - If multiple ghosts are eaten under one power pellet, can vary pitch or volume per ghost to match the scoring ramp (200, 400, 800, 1600).
+
+3. Ghost eyes returning
+   - Trigger: immediately after ghost is eaten and becomes eyes.
+   - Optional:
+     - A subtle whoosh or high-pitched glide while the eyes travel back to the house.
+     - This can be very minimal or omitted.
+
+4. Ghost respawn
+   - Trigger: eyes reach ghost house and body reforms.
+   - Very short blip indicating the ghost is back in play.
+   - Does not interrupt siren.
+
+8.5 UI and intermission sounds
+
+1. Coin insert / credit (if emulating arcade)
+   - Trigger: player adds a credit.
+   - Simple “coin” chime.
+
+2. Start button pressed
+   - Trigger: player begins game from title screen.
+   - Short confirmation beep or mini-jingle; can lead into main start jingle.
+
+3. Intermission / cut-scene themes
+   - Trigger: between certain levels.
+   - Short playful tunes, each matched to the cartoon animation.
+   - No siren during intermission; only the intermission music.
+
+4. Attract mode
+   - Can reuse normal gameplay sounds, possibly at lower volume.
+   - Alternatively, use only a subset (start jingle, a few chomp sounds, death sound) to keep the attract mode less noisy.
+
+8.6 Practical audio asset checklist
+
+Looping background tracks:
+- BGM_Siren_Low
+- BGM_Siren_Mid
+- BGM_Siren_High
+- BGM_Frightened
+- (Optional) BGM_Frightened_Alert
+
+One-shot SFX:
+- SFX_Pellet_Chomp_A
+- SFX_Pellet_Chomp_B (alternate pitch)
+- SFX_PowerPellet
+- SFX_Fruit_Collected
+- SFX_Ghost_Eaten
+- SFX_Ghost_Respawn
+- SFX_ExtraLife
+- SFX_LevelComplete
+- SFX_Death
+- SFX_GameStart (or SFX_LevelStart)
+- SFX_Coin (optional)
+- SFX_StartButton (optional)
+- SFX_Intermission_1
+- SFX_Intermission_2
+- SFX_Intermission_3
+
+--------------------------------------------------
+9. CHARACTER / SPRITE DESIGN
+--------------------------------------------------
+
+9.1 General pixel scale and style
+
+1. Pixel art style
+   - Use low-resolution sprite art to match the arcade feel.
+   - Clean silhouettes with bold, flat colors and minimal shading.
+
+2. Tile and sprite relationship
+   - Base tile size: 8×8 or 16×16 pixels depending on your target resolution.
+   - Pac-Man and ghosts:
+     - Typically occupy one tile horizontally and slightly more than one tile vertically (e.g., 14×14 or 16×16 pixels centered on tile).
+
+3. Animation philosophy
+   - Use a small number of frames (2–4) for each repeating animation.
+   - Emphasize clear motion readability (mouth opening, eyes direction, ghost wobble, etc.) over complexity.
+
+9.2 Pac-Man visual design
+
+1. Shape and size
+   - Basic shape: a filled yellow circle.
+   - Size: slightly smaller than the tile, e.g., 14×14 pixels in a 16×16 tile so it has a 1-pixel border around.
+   - Center Pac-Man on the tile grid center.
+
+2. Color
+   - Body: bright yellow.
+   - No outline in the original, but you can add a 1-pixel darker outline for readability on modern screens.
+
+3. Mouth and animation
+   - Mouth: a wedge-shaped “slice” removed from the circle.
+   - Two primary animation frames per direction:
+     - Mouth closed (circle with a minimal notch or no cut).
+     - Mouth open (large triangular wedge facing direction of travel).
+   - Directions:
+     - Right: wedge removed from right side.
+     - Left: mirror horizontally.
+     - Up: wedge removed from top.
+     - Down: wedge removed from bottom.
+   - Animation speed:
+     - Alternate between open and closed frames as Pac-Man moves.
+     - Tie frame change to movement distance rather than time (e.g., change every half-tile or fixed number of pixels) for consistent visual rhythm.
+
+4. Death animation
+   - Multiple frames where:
+     - Pac-Man’s mouth slowly opens wider and wider until nearly a full circle line.
+     - Then collapses into a small line or dot before disappearing.
+   - 6–10 frames is enough to convey the full sequence.
+
+9.3 Ghost visual design
+
+1. Base shape
+   - Rounded dome on top with a flat bottom.
+   - At the bottom, create 3–4 “wave” scallops to simulate a hovering sheet.
+   - Width similar to Pac-Man’s diameter; slightly taller vertically (e.g., 14×16 pixels).
+
+2. Base colors by ghost
+   - Blinky: red.
+   - Pinky: pink.
+   - Inky: cyan/light blue.
+   - Clyde: orange.
+
+3. Eyes
+   - Two large white ovals near the top-center of the body.
+   - Blue or dark pupils indicating direction:
+     - Change pupil offset to point left/right/up/down depending on ghost movement direction.
+   - No mouth in normal mode.
+
+4. Animation
+   - Idle/movement: 2-frame animation of the scalloped bottom shifting slightly up and down (wobble).
+   - Frame A: scallops pattern slightly high.
+   - Frame B: scallops pattern slightly low.
+   - Alternate frames as the ghost moves to give a floating effect.
+
+5. Frightened state visuals
+   - Body color: blue.
+   - Eyes:
+     - Simple white circles with small pupils or stylized wide eyes to show fear.
+   - Add a small, lighter blue or white highlight for a glowing effect (optional).
+   - Near the end of frightened time:
+     - Overlay flashing colors (blue + white or blue + original ghost colors) to indicate that frightened mode is about to end.
+
+6. Eaten ghost (eyes only)
+   - Remove body; render only eyes.
+   - Eyes keep their direction-based pupil offsets while returning to the ghost house.
+   - Size: same as normal but without body behind them.
+
+7. Ghost house indicator and gate
+   - The gate tile:
+     - A small horizontal bar (e.g., white or light-colored) at the entrance.
+     - Visually distinct from ordinary wall and corridor tiles.
+
+9.4 Fruit / bonus item visuals
+
+1. Style
+   - Small, recognizable silhouettes for each fruit/symbol.
+   - Pixel art with 2–4 colors each:
+     - Base color.
+     - Darker shade for outline.
+     - One or two accent colors for details.
+
+2. Examples
+   - Cherry:
+     - Two small red circles with a shared brown/green stem.
+   - Strawberry:
+     - Red triangle with green top and small yellow dots for seeds.
+   - Orange/Peach:
+     - Round orange shape with subtle highlight and small leaf.
+   - Apple:
+     - Slightly squarer red shape with a top notch and stalk.
+   - Melon:
+     - Green oval with light stripes.
+   - Galaxian:
+     - Tiny stylized spaceship in yellow/blue/orange.
+   - Bell:
+     - Yellow bell shape with clapper hint and highlight.
+   - Key:
+     - Gold key with simple head and 2–3 teeth.
+
+3. Animation
+   - Simple 2-frame animation is optional:
+     - Slight vertical bobbing (1–2 pixels) or micro-rotation.
+     - Helps draw player attention when fruit appears.
+
+9.5 Pellet and power pellet visuals
+
+1. Small pellet
+   - Single small dot centered in corridor tiles.
+   - Color: white or pale yellow.
+   - Size: 1–2 pixels depending on your scale.
+
+2. Power pellet
+   - Larger dot, often 2×2 or 3×3 pixels.
+   - Same color as small pellet or slightly more saturated.
+   - Flashing:
+     - Alternate between bright and dim frames to make it stand out.
+     - Frame timing can be slow (e.g., 4–8 frames per flash cycle).
+
+9.6 UI elements and icons
+
+1. Lives icon
+   - Small Pac-Man head icon rendered at bottom-left or bottom-center of HUD.
+   - Static version of Pac-Man facing right.
+
+2. Level (fruit) indicator
+   - A row of mini fruit icons representing past levels.
+   - Use simplified, smaller versions of the in-game fruit sprites.
+
+3. Score and high score text
+   - Use a blocky, all-caps bitmap font.
+   - Colors:
+     - White or light gray text on dark background.
+
+4. READY and GAME OVER messages
+   - Yellow “READY!” centered above the maze.
+   - Red or white “GAME OVER” in the same location when the game ends.
+
+9.7 Color palette suggestions
+
+1. Background and walls
+   - Black background for playfield.
+   - Maze walls in a single bright color (classic Pac-Man uses cyan/blue).
+   - Optionally add a darker interior outline for walls to differentiate them.
+
+2. Entities
+   - Pac-Man: bright yellow.
+   - Ghosts: distinctive saturated colors (red/pink/cyan/orange).
+   - Pellets: white/cream.
+   - Power pellets: brighter white/yellow, flashing.
+
+3. HUD
+   - Text: white or light gray.
+   - Icons: same palette as characters, scaled down.
+
+--------------------------------------------------
+END OF PAC-MAN CLASSIC DESIGN TEXT FILE
+--------------------------------------------------
